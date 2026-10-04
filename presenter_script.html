@@ -76,6 +76,7 @@
 
     .app-shell {
       height: 100vh;
+      height: 100dvh;
       display: grid;
       grid-template-rows: var(--header-height) minmax(0, 1fr) var(--footer-height);
     }
@@ -293,7 +294,8 @@
     @media (max-width: 720px) {
       :root { --sidebar-width: 0px; --header-height: 210px; --footer-height: 68px; }
       body, body.slides-collapsed, body.notes-collapsed, body.slides-collapsed.notes-collapsed { --sidebar-width: 0px; --notes-width: 0px; }
-      .workspace, body.slides-collapsed .workspace, body.notes-collapsed .workspace, body.slides-collapsed.notes-collapsed .workspace { grid-template-columns: 0 minmax(0, 1fr) 0; padding: 7px; gap: 0; }
+      .workspace, body:not(.notes-user-open) .workspace, body.notes-user-open .workspace,
+      body.slides-collapsed .workspace, body.notes-collapsed .workspace, body.slides-collapsed.notes-collapsed .workspace { grid-template-columns: 0 minmax(0, 1fr) 0; padding: 7px; gap: 0; }
       .slides-panel, .notes-panel { opacity: 0; pointer-events: none; }
       .brand-copy h1 { font-size: 17px; }
       .timer-cluster { border-right: 0; }
@@ -506,7 +508,7 @@
     <p class="cloud-message" id="cloudMessage" role="status" aria-live="polite"></p>
     <div class="cloud-sync-info">
       <p>已有本地 HTML 里的讲稿？先在原文件导出 JSON，再在此网页导入。首次上传会让手机获得这份讲稿。</p>
-      <p><a href="./setup.html" target="_blank" rel="noopener">首次设置说明与数据库脚本</a></p>
+      <p><a href="https://ryanjunx.github.io/presentation/setup.html" target="_blank" rel="noopener">首次设置说明与数据库脚本</a></p>
     </div>
   </dialog>
 
