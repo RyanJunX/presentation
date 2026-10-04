@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>首次设置 · 文稿提示器</title>
+<style>body{margin:0;background:#f2f5fa;color:#172033;font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif}main{max-width:860px;margin:36px auto;padding:28px;background:white;border:1px solid #dce3ee;border-radius:16px}h1{margin-top:0;font-size:28px}h2{font-size:21px;margin-top:30px}a{color:#2563eb}code{background:#edf2f9;padding:2px 5px;overflow-wrap:anywhere}textarea{width:100%;height:300px;box-sizing:border-box;font:13px/1.5 Consolas,monospace;border:1px solid #ccd6e4;border-radius:8px;padding:12px}button{padding:9px 15px;background:#2563eb;color:white;border:0;border-radius:8px;cursor:pointer;font-size:15px}.hint{color:#63718a}#copyStatus{margin-left:10px}@media(max-width:600px){main{margin:10px;padding:18px}}</style>
+</head><body><main>
+<h1>让电脑与手机使用同一份讲稿</h1>
+<p>网页已经连接你的 Supabase 项目。完成以下一次性配置后，就可以登录并同步。</p>
+<h2>1. 创建数据表与私有访问规则</h2>
+<p>点击下方“复制 SQL”，打开 <a href="https://supabase.com/dashboard/project/hiuzycvkssbnznilctxd/sql/new" target="_blank" rel="noopener">Supabase SQL Editor</a>，粘贴代码并点击右下角 <strong>Run</strong>。成功结果通常显示 <code>Success. No rows returned</code>。</p>
+<textarea id="sql" readonly aria-label="数据库设置 SQL">正在读取 SQL…</textarea>
+<button type="button" id="copy">复制 SQL</button><span id="copyStatus" role="status"></span>
+<p class="hint">也可<a href="./supabase_setup.sql" download>下载 SQL 文件</a>后打开复制。脚本带有权限与版本冲突检查，检查失败会回滚整次设置。</p>
+<h2>2. 创建你自己的登录账号</h2>
+<p>打开 Supabase 左侧 <strong>Authentication → Users</strong>，点击 <strong>Add user → Create new user</strong>。填写自己的邮箱和密码，勾选 <strong>Auto Confirm User</strong> 后创建。这个密码用于提词器登录，不是数据库密码；不需要把密码发送给任何人。</p>
+<p>电脑和手机在提词器里填写相同的邮箱与密码。</p>
+<h2>3. 配置登录返回地址</h2>
+<p>打开 <strong>Authentication → URL Configuration</strong>，将 <strong>Site URL</strong> 设置为：</p>
+<p><code>https://ryanjunx.github.io/presentation/presenter_script.html</code></p>
+<p>在 <strong>Redirect URLs</strong> 中也添加这个完整地址并保存。密码登录无需邮件；若要使用邮箱登录链接，需要项目已配置可用的邮件发送服务。</p>
+<h2>4. 将电脑里的讲稿上传一次</h2>
+<ol>
+<li>如果旧 HTML 已有你的讲稿，先在旧文件中进入编辑模式并导出 JSON。</li>
+<li><a href="./presenter_script.html">打开在线提词器</a>，点击“登录 / 云同步”，用刚创建的账号登录。</li>
+<li>导入旧 JSON，或直接编辑新的讲稿。</li>
+<li>在“云同步设置”中点击“将当前讲稿保存到云端”。等待顶部显示“云端已同步”。</li>
+<li>手机打开同一网址，登录同一邮箱；即可读取电脑上传的讲稿。</li>
+</ol>
+<p class="hint">手机翻页、计时和字体独立设置。每 15 秒、页面重新打开或回到前台时会检查更新，也可以手动点“同步”。网络异常时讲稿继续保存在本设备。</p>
+</main><script>
+const sql=document.getElementById('sql'),status=document.getElementById('copyStatus');
+fetch('./supabase_setup.sql').then(r=>{if(!r.ok)throw Error();return r.text()}).then(text=>sql.value=text).catch(()=>{sql.value='请点击上方“下载 SQL 文件”，用文本编辑器打开后复制全部内容。';document.getElementById('copy').disabled=true;});
+document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(sql.value);status.textContent='已复制，粘贴到 SQL Editor 后点击 Run。';}catch(_){sql.focus();sql.select();status.textContent='已选中，请按 Ctrl+C 复制。';}});
+</script></body></html>

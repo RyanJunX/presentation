@@ -28,7 +28,7 @@
       --success: #15803d;
       --shadow: 0 12px 32px rgba(30, 50, 80, .08);
       --script-size: 32px;
-      --header-height: 116px;
+      --header-height: 138px;
       --footer-height: 76px;
       --sidebar-width: 266px;
       --notes-width: 310px;
@@ -91,6 +91,24 @@
       border-bottom: 1px solid var(--border);
       box-shadow: 0 3px 18px rgba(30, 50, 80, .05);
     }
+    .cloud-strip { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 13px; }
+    .cloud-strip .cloud-state { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+    .cloud-strip .cloud-state.error { color: var(--warning); }
+    .cloud-strip .btn { min-height: 27px; padding: 3px 9px; font-size: 12px; }
+    .cloud-dialog { width: min(540px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: var(--shadow); }
+    .cloud-dialog::backdrop { background: rgba(0, 0, 0, .5); }
+    .cloud-dialog h2 { margin: 0 0 12px; font-size: 22px; }
+    .cloud-dialog p { font-size: 14px; line-height: 1.65; color: var(--muted); }
+    .cloud-dialog .field { margin: 14px 0; }
+    .cloud-dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .cloud-message { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 22px; }
+    .cloud-message.error { color: var(--warning); }
+    .cloud-message.success { color: var(--success); }
+    .cloud-sync-info { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .cloud-dialog a { color: var(--accent); }
+    .cloud-close { float: right; }
+    .paragraph { overflow-wrap: anywhere; }
+    .cue-tag { max-width: 100%; white-space: normal !important; }
 
     .brand-row, .top-actions, .status-row, .timer-cluster, .mode-switch, .view-toggles,
     .footer-nav, .editor-actions, .slide-item-actions { display: flex; align-items: center; }
@@ -262,7 +280,7 @@
     }
 
     @media (max-width: 930px) {
-      :root { --header-height: 158px; --notes-width: 260px; }
+      :root { --header-height: 190px; --notes-width: 260px; }
       .topbar { grid-template-columns: 1fr; }
       .top-actions { justify-content: flex-start; }
       body:not(.notes-user-open) .workspace { grid-template-columns: var(--sidebar-width) minmax(380px, 1fr) 0; }
@@ -273,7 +291,7 @@
     }
 
     @media (max-width: 720px) {
-      :root { --sidebar-width: 0px; --header-height: 170px; --footer-height: 68px; }
+      :root { --sidebar-width: 0px; --header-height: 210px; --footer-height: 68px; }
       body, body.slides-collapsed, body.notes-collapsed, body.slides-collapsed.notes-collapsed { --sidebar-width: 0px; --notes-width: 0px; }
       .workspace, body.slides-collapsed .workspace, body.notes-collapsed .workspace, body.slides-collapsed.notes-collapsed .workspace { grid-template-columns: 0 minmax(0, 1fr) 0; padding: 7px; gap: 0; }
       .slides-panel, .notes-panel { opacity: 0; pointer-events: none; }
@@ -290,6 +308,20 @@
       .footer { padding: 9px 10px; }
       .nav-btn { min-width: 108px; min-height: 44px; padding: 8px 10px; }
       .dots { min-width: 80px; gap: 5px; }
+      .brand-copy h1 { font-size: 15px; }
+      .topbar { gap: 8px; padding: 10px; }
+      .top-actions .btn { min-height: 32px; padding: 6px 8px; }
+      .top-actions .btn.icon { width: 32px; }
+      .timer-display { min-width: 100px; font-size: 15px; }
+      .top-actions { row-gap: 5px; }
+      .script-header h2 { font-size: 25px; }
+      .paragraph { font-size: min(var(--script-size), 27px); }
+      body.slides-mobile-open .slides-panel, body.notes-user-open .notes-panel {
+        position: fixed; z-index: 25; top: var(--header-height); bottom: var(--footer-height);
+        left: 7px; right: 7px; width: auto; opacity: 1; pointer-events: auto;
+      }
+      body.slides-mobile-open .slides-panel { display: flex; }
+      body.notes-user-open .notes-panel { display: flex; }
     }
   </style>
 </head>
@@ -328,6 +360,11 @@
           <button class="btn icon" id="slidesToggle" type="button" title="显示或隐藏 Slides" aria-label="显示或隐藏 Slides">☷</button>
           <button class="btn icon" id="notesToggle" type="button" title="显示或隐藏 Notes" aria-label="显示或隐藏 Notes">ⓘ</button>
         </div>
+      </div>
+      <div class="cloud-strip">
+        <span class="cloud-state" id="cloudStatus" role="status" aria-live="polite">本地模式 · 登录后跨设备同步</span>
+        <button class="btn" id="cloudSyncNow" type="button" hidden>同步</button>
+        <button class="btn" id="cloudOpen" type="button">登录 / 云同步</button>
       </div>
     </header>
 
@@ -441,11 +478,172 @@
 
   <div class="save-status" id="saveToast" role="status" aria-live="polite"><span class="save-dot"></span><span>已自动保存</span></div>
 
+  <dialog id="cloudDialog" class="cloud-dialog" aria-labelledby="cloudDialogTitle">
+    <button class="btn small cloud-close" type="button" id="cloudClose" aria-label="关闭云同步设置">关闭</button>
+    <h2 id="cloudDialogTitle">云端同步</h2>
+    <div id="cloudLoginFields">
+      <p>电脑和手机使用同一个邮箱登录，读取同一份讲稿。</p>
+      <form id="cloudLoginForm">
+        <div class="field"><label for="cloudEmail">邮箱</label><input id="cloudEmail" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="cloudPassword">密码（使用密码登录时填写）</label><input id="cloudPassword" type="password" autocomplete="current-password"></div>
+        <div class="cloud-dialog-actions">
+          <button class="btn primary" type="submit" id="cloudPasswordLogin">密码登录</button>
+          <button class="btn" type="button" id="cloudMagicLogin">发送邮箱登录链接</button>
+        </div>
+      </form>
+      <p>首次使用，可在 Supabase 的 Authentication → Users 创建账号。邮箱链接需要项目已配置邮件发送；密码只在登录时发送给 Supabase。</p>
+    </div>
+    <div id="cloudAccountFields" hidden>
+      <p id="cloudAccountLabel"></p>
+      <p>讲稿、页标题、Notes、预计时间自动同步。字体、当前页、段落和计时保留在本设备。两台设备同时编辑会提示版本冲突。</p>
+      <div class="cloud-dialog-actions">
+        <button class="btn primary" type="button" id="cloudUpload">将当前讲稿保存到云端</button>
+        <button class="btn" type="button" id="cloudDownload">使用云端讲稿</button>
+        <button class="btn" type="button" id="cloudBackup">导出本地备份</button>
+        <button class="btn" type="button" id="cloudLogout">退出登录</button>
+      </div>
+    </div>
+    <p class="cloud-message" id="cloudMessage" role="status" aria-live="polite"></p>
+    <div class="cloud-sync-info">
+      <p>已有本地 HTML 里的讲稿？先在原文件导出 JSON，再在此网页导入。首次上传会让手机获得这份讲稿。</p>
+      <p><a href="./setup.html" target="_blank" rel="noopener">首次设置说明与数据库脚本</a></p>
+    </div>
+  </dialog>
+
+  <script>
+    // CLOUD_SYNC_BEGIN: isolated, transport-injected synchronization controller.
+    function createPresenterSync(options) {
+      let user = null, version = 0, dirty = false, initialized = false;
+      let epoch = 0, busyEpoch = null, editGeneration = 0;
+      let baseline = '', conflict = false;
+      const contentKey = value => JSON.stringify(value);
+      const current = () => options.getContent();
+      const persist = () => {
+        if (user) {
+          try { options.store(user.id, { version, dirty, initialized, snapshot: options.getSnapshot() }); }
+          catch (_) { options.notify('本地存储已满，建议立即导出 JSON 备份。', true); }
+        }
+      };
+      const status = (message, error = false) => options.notify(message, error);
+      const errorText = error => {
+        if (['42P01', 'PGRST205', 'PGRST202'].includes(error?.code)) return '数据库尚未初始化：请运行设置页中的 SQL 脚本，然后点击同步。';
+        if (error?.code === '42501') return '数据库权限未配置：请运行完整 SQL 脚本。';
+        return `本地已保存，云端未同步：${error?.message || '网络连接失败'}。可稍后点击同步重试。`;
+      };
+      async function sync({ upload = false, download = false } = {}) {
+        if (!user || busyEpoch === epoch) return;
+        const runEpoch = epoch, runUser = user.id;
+        busyEpoch = runEpoch;
+        status(navigator.onLine === false ? '离线 · 本地已保存，联网后同步' : '正在同步…');
+        try {
+          const { data: remote, error } = await options.client.from('presenter_documents')
+            .select('data,version,updated_at').eq('user_id', runUser).maybeSingle();
+          if (runEpoch !== epoch) return;
+          if (error) throw error;
+          if (remote && (!Array.isArray(remote.data?.slides) || !remote.data.slides.length)) throw new Error('云端讲稿格式无效');
+          const remoteVersion = remote ? Number(remote.version) : 0;
+
+          if (download) {
+            if (!remote) { status('云端还没有讲稿，请先在电脑上传。'); return; }
+            if (contentKey(current()) !== contentKey(remote.data)) {
+              if (!options.confirmReplace('使用云端讲稿将替换本设备的讲稿。当前内容会保留一份恢复备份。继续吗？')) return;
+              options.backup();
+            }
+            options.applyRemote(remote.data);
+            version = remoteVersion; dirty = false; initialized = true; conflict = false;
+            baseline = contentKey(current()); persist(); status('云端已同步'); return;
+          }
+
+          if (!initialized && !upload) {
+            if (remote && !dirty) {
+              options.applyRemote(remote.data);
+              version = remoteVersion; initialized = true; baseline = contentKey(current());
+              persist(); status('云端已同步');
+            } else if (remote) {
+              conflict = true;
+              status('检测到本地和云端两份讲稿，请在云同步中选择保留哪一份。', true);
+            } else {
+              status('云端尚无讲稿 · 点击云同步中的“保存到云端”开始');
+            }
+            return;
+          }
+          if (remote && contentKey(remote.data) === contentKey(current())) {
+            version = remoteVersion; dirty = false; initialized = true; conflict = false;
+            baseline = contentKey(current()); persist(); status('云端已同步'); return;
+          }
+          if (upload) {
+            if (remote && (!initialized || remoteVersion !== version)) {
+              if (!options.confirmReplace('云端已有另一版本。确定用本设备当前讲稿替换云端吗？建议先导出本地备份。')) return;
+            }
+            version = remoteVersion; dirty = true; conflict = false;
+          } else if (remoteVersion !== version) {
+            if (dirty || !remote) {
+              conflict = true;
+              status('版本冲突 · 本地修改已保留，请在云同步中选择保留本地或云端版本。', true);
+              return;
+            }
+            if (options.isEditing()) { status('云端有新版本 · 结束编辑后自动更新'); return; }
+            options.applyRemote(remote.data);
+            version = remoteVersion; baseline = contentKey(current()); persist();
+            status('已获取其他设备的最新讲稿'); return;
+          }
+          if (!dirty) { status('云端已同步'); return; }
+          const submitted = current(), submittedKey = contentKey(submitted), submittedGeneration = editGeneration;
+          const { data: result, error: saveError } = await options.client.rpc('save_presenter_document', {
+            p_data: submitted, p_expected_version: version
+          });
+          if (runEpoch !== epoch) return;
+          if (saveError) throw saveError;
+          if (!result || typeof result.conflict !== 'boolean') throw new Error('云端返回无效结果');
+          if (result.conflict) {
+            conflict = true;
+            status('版本冲突 · 本地修改已保留，请在云同步中选择保留版本。', true);
+            return;
+          }
+          version = Number(result.version); initialized = true; baseline = submittedKey;
+          dirty = editGeneration !== submittedGeneration || contentKey(current()) !== submittedKey;
+          persist(); status(dirty ? '云端已保存上一版本 · 当前修改等待同步' : '云端已同步');
+        } catch (error) {
+          if (runEpoch === epoch) { persist(); status(errorText(error), true); }
+        } finally {
+          if (busyEpoch === runEpoch) busyEpoch = null;
+        }
+      }
+      function changed() {
+        if (!user || contentKey(current()) === baseline) return;
+        editGeneration++; dirty = true; persist();
+        status(conflict ? '版本冲突 · 当前修改已保存在本设备' : '本地已保存 · 等待云端同步', conflict);
+      }
+      async function connect(nextUser) {
+        if (nextUser?.id === user?.id) return;
+        persist();
+        epoch++;
+        // Timer/UI callbacks during a switch must not write the old account's
+        // document into the next account's recovery cache.
+        user = null;
+        version = 0; dirty = false; initialized = false; conflict = false; editGeneration = 0;
+        const cached = nextUser ? options.load(nextUser.id) : null;
+        options.switchUser(nextUser || null, cached?.snapshot);
+        user = nextUser || null;
+        if (cached) { version = Number(cached.version) || 0; dirty = Boolean(cached.dirty); initialized = Boolean(cached.initialized); }
+        baseline = contentKey(current());
+        status(user ? '正在读取云端…' : '本地模式 · 登录后跨设备同步');
+        if (user) { persist(); await sync(); }
+      }
+      return { connect, sync, changed, persist, getInfo: () => ({ user, version, dirty, initialized, conflict }) };
+    }
+    // CLOUD_SYNC_END
+  </script>
   <script>
     (() => {
       'use strict';
 
       const STORAGE_KEY = 'presenterScriptDataV1';
+      const SUPABASE_URL = 'https://hiuzycvkssbnznilctxd.supabase.co';
+      const SUPABASE_KEY = 'sb_publishable_ZTvcITVA_K4WnDhgChWZlg_8QUh6qTW';
+      const APP_URL = 'https://ryanjunx.github.io/presentation/presenter_script.html';
+      let activeStorageKey = STORAGE_KEY;
+      let cloudClient = null, cloudSync = null, cloudSaveTimer = null;
       const FONT_MIN = 22;
       const FONT_MAX = 48;
       const FONT_STEP = 2;
@@ -620,7 +818,8 @@
       function saveData(options = {}) {
         try {
           const payload = { ...state, timerRunning: false };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          localStorage.setItem(activeStorageKey, JSON.stringify(payload));
+          cloudSync?.persist();
           elements.saveStatusInline.textContent = '已保存';
           if (options.toast !== false) showSaveToast();
         } catch (error) {
@@ -630,6 +829,8 @@
       }
 
       function scheduleSave() {
+        // Persist immediately; debounce only cloud traffic and save indicator.
+        saveData({ toast: false });
         elements.saveStatusInline.textContent = '保存中…';
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => saveData(), 400);
@@ -867,7 +1068,7 @@
         state.slides.push(slide);
         state.paragraphIndices[slide.id] = 0;
         state.currentSlide = state.slides.length - 1;
-        renderAll(); scheduleSave();
+        renderAll(); scheduleSave(); markCloudChanged();
         requestAnimationFrame(() => elements.editTitle.select());
       }
 
@@ -878,10 +1079,12 @@
         }
         const slide = state.slides[index];
         if (!window.confirm(`确定删除 Slide ${index + 1}“${slide.title}”吗？`)) return;
+        const currentId = getCurrentSlide().id;
         state.slides.splice(index, 1);
         delete state.paragraphIndices[slide.id];
-        state.currentSlide = Math.min(state.currentSlide, state.slides.length - 1);
-        renderAll(); scheduleSave();
+        const stillCurrent = state.slides.findIndex(s => s.id === currentId);
+        state.currentSlide = stillCurrent >= 0 ? stillCurrent : Math.min(index, state.slides.length - 1);
+        renderAll(); scheduleSave(); markCloudChanged();
       }
 
       function moveSlide(fromIndex, toIndex) {
@@ -890,7 +1093,7 @@
         const [moved] = state.slides.splice(fromIndex, 1);
         state.slides.splice(toIndex, 0, moved);
         state.currentSlide = state.slides.findIndex(slide => slide.id === currentId);
-        renderAll(); scheduleSave();
+        renderAll(); scheduleSave(); markCloudChanged();
       }
 
       function updateCurrentSlideFromEditor() {
@@ -907,6 +1110,7 @@
         elements.currentTitle.textContent = slide.title;
         elements.currentSubtitle.textContent = slide.subtitle || ' ';
         scheduleSave();
+        markCloudChanged();
       }
 
       function toggleEditMode(mode) {
@@ -1019,6 +1223,7 @@
             pauseTimer();
             state = normalizeData(parsed);
             saveData(); renderAll();
+            markCloudChanged();
           } catch (error) {
             window.alert(`导入失败：${error.message}`);
           } finally {
@@ -1033,17 +1238,197 @@
         if (!window.confirm('确定清除全部本地数据并恢复 Demo 吗？此操作无法撤销。')) return;
         if (!window.confirm('再次确认：当前讲稿将被 Demo 数据替换。是否继续？')) return;
         pauseTimer();
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(activeStorageKey);
         state = createDemoData();
-        saveData(); renderAll();
+        saveData(); renderAll(); markCloudChanged();
       }
 
       function isTypingTarget(target) {
         return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
       }
 
+      function getCloudContent() {
+        return JSON.parse(JSON.stringify({ slides: state.slides, targetTime: state.targetTime }));
+      }
+
+      function markCloudChanged() {
+        cloudSync?.changed();
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = setTimeout(() => cloudSync?.sync(), 1000);
+      }
+
+      function setCloudStatus(message, error = false) {
+        $('#cloudStatus').textContent = message;
+        $('#cloudStatus').title = message;
+        $('#cloudStatus').classList.toggle('error', error);
+        if (error) setCloudMessage(message, true);
+      }
+
+      function setCloudMessage(message, error = false) {
+        $('#cloudMessage').textContent = message;
+        $('#cloudMessage').className = `cloud-message ${error ? 'error' : 'success'}`;
+      }
+
+      function applyCloudContent(content) {
+        const oldId = getCurrentSlide()?.id;
+        const normalized = normalizeData({ ...state, slides: content.slides, targetTime: content.targetTime });
+        state.slides = normalized.slides;
+        state.targetTime = normalized.targetTime;
+        const index = state.slides.findIndex(s => s.id === oldId);
+        state.currentSlide = index >= 0 ? index : Math.min(state.currentSlide, state.slides.length - 1);
+        state.paragraphIndices = normalized.paragraphIndices;
+        // Controller persists its new version after this callback returns.
+        localStorage.setItem(activeStorageKey, JSON.stringify({ ...state, timerRunning: false }));
+        renderAll();
+      }
+
+      function switchCloudUser(user, snapshot) {
+        clearTimeout(saveTimer); clearTimeout(cloudSaveTimer);
+        pauseTimer();
+        localStorage.setItem(activeStorageKey, JSON.stringify({ ...state, timerRunning: false }));
+        const wasAnonymous = activeStorageKey === STORAGE_KEY;
+        const nextKey = user ? `${STORAGE_KEY}:${user.id}` : STORAGE_KEY;
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(nextKey)); } catch (_) { /* retain valid current draft */ }
+        const next = snapshot || saved || (user && wasAnonymous ? state : createDemoData());
+        activeStorageKey = nextKey;
+        state = normalizeData(next);
+        state.mode = 'presentation';
+        renderAll();
+        $('#cloudLoginFields').hidden = Boolean(user);
+        $('#cloudAccountFields').hidden = !user;
+        $('#cloudSyncNow').hidden = !user;
+        $('#cloudOpen').textContent = user ? '云同步设置' : '登录 / 云同步';
+        $('#cloudAccountLabel').textContent = user ? `已登录：${user.email || ''}` : '';
+        $('#cloudPassword').value = '';
+        setCloudMessage('');
+      }
+
+      function loadCloudCache(userId) {
+        try { return JSON.parse(localStorage.getItem(`presenterCloudCache:${userId}`)); }
+        catch (_) { return null; }
+      }
+
+      function backupCloudDraft() {
+        const userId = cloudSync?.getInfo().user?.id || 'local';
+        localStorage.setItem(`presenterRecovery:${userId}`, JSON.stringify({ savedAt: new Date().toISOString(), ...state }));
+      }
+
+      async function loadSupabaseSDK() {
+        if (window.supabase?.createClient) return;
+        const sources = ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js',
+          'https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'];
+        for (const src of sources) {
+          try {
+            await new Promise((resolve, reject) => {
+              const node = document.createElement('script');
+              const timeout = setTimeout(() => { node.remove(); reject(new Error('连接超时')); }, 10000);
+              node.src = src; node.async = true;
+              node.onload = () => { clearTimeout(timeout); resolve(); };
+              node.onerror = () => { clearTimeout(timeout); node.remove(); reject(new Error('加载失败')); };
+              document.head.appendChild(node);
+            });
+            if (window.supabase?.createClient) return;
+          } catch (_) { /* Try the second official-supported CDN. */ }
+        }
+        throw new Error('无法加载云同步组件，请检查网络后刷新。本地讲稿仍可使用。');
+      }
+
+      async function initializeCloud() {
+        try {
+          await loadSupabaseSDK();
+          cloudClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true,
+              storageKey: 'presenterSupabaseSession' },
+            global: { fetch: (url, init = {}) => {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 15000);
+              const abort = () => controller.abort();
+              if (init.signal?.aborted) controller.abort();
+              init.signal?.addEventListener('abort', abort, { once: true });
+              return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+                clearTimeout(timer); init.signal?.removeEventListener('abort', abort);
+              });
+            } }
+          });
+          cloudSync = createPresenterSync({
+            client: cloudClient,
+            getContent: getCloudContent,
+            getSnapshot: () => ({ ...state, timerRunning: false }),
+            applyRemote: applyCloudContent,
+            switchUser: switchCloudUser,
+            load: loadCloudCache,
+            store: (id, value) => localStorage.setItem(`presenterCloudCache:${id}`, JSON.stringify(value)),
+            notify: setCloudStatus,
+            isEditing: () => state.mode === 'edit' && isTypingTarget(document.activeElement),
+            confirmReplace: message => window.confirm(message),
+            backup: backupCloudDraft
+          });
+          cloudClient.auth.onAuthStateChange((_event, session) => {
+            // Defer work outside the SDK's auth callback to avoid lock deadlocks.
+            setTimeout(() => cloudSync.connect(session?.user || null).catch(error => setCloudStatus(error.message, true)), 0);
+          });
+          const { data, error } = await cloudClient.auth.getSession();
+          if (error) throw error;
+          await cloudSync.connect(data.session?.user || null);
+          setInterval(() => {
+            if (document.visibilityState === 'visible') cloudSync.sync();
+          }, 15000);
+          window.addEventListener('online', () => cloudSync.sync());
+          window.addEventListener('focus', () => cloudSync.sync());
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') cloudSync.sync();
+          });
+        } catch (error) { setCloudStatus(error.message, true); }
+      }
+
+      async function cloudSignIn(useMagicLink) {
+        if (!cloudClient) { setCloudMessage('云同步组件正在连接。若长时间未完成，请检查网络后刷新。', true); return; }
+        const email = $('#cloudEmail').value.trim();
+        if (!$('#cloudEmail').reportValidity() || !email) return;
+        const password = $('#cloudPassword').value;
+        if (!useMagicLink && !password) { setCloudMessage('请填写密码，或选择发送邮箱登录链接。', true); return; }
+        $('#cloudPasswordLogin').disabled = true;
+        $('#cloudMagicLogin').disabled = true;
+        setCloudMessage('正在登录…');
+        try {
+          const result = useMagicLink
+            ? await cloudClient.auth.signInWithOtp({ email, options: { emailRedirectTo: APP_URL, shouldCreateUser: false } })
+            : await cloudClient.auth.signInWithPassword({ email, password });
+          if (result.error) throw result.error;
+          $('#cloudPassword').value = '';
+          if (useMagicLink) setCloudMessage('请求已发送。请检查邮箱，在本设备浏览器中打开登录链接。收不到邮件时请使用密码登录。');
+          else {
+            await cloudSync.connect(result.data.user);
+            $('#cloudDialog').close();
+          }
+        } catch (error) { setCloudMessage(`登录失败：${error.message}`, true); }
+        finally {
+          $('#cloudPasswordLogin').disabled = false;
+          $('#cloudMagicLogin').disabled = false;
+        }
+      }
+
+      function bindCloudEvents() {
+        $('#cloudOpen').addEventListener('click', () => $('#cloudDialog').showModal());
+        $('#cloudClose').addEventListener('click', () => $('#cloudDialog').close());
+        $('#cloudLoginForm').addEventListener('submit', event => { event.preventDefault(); cloudSignIn(false); });
+        $('#cloudMagicLogin').addEventListener('click', () => cloudSignIn(true));
+        $('#cloudSyncNow').addEventListener('click', () => cloudSync?.sync());
+        $('#cloudUpload').addEventListener('click', () => cloudSync?.sync({ upload: true }));
+        $('#cloudDownload').addEventListener('click', () => cloudSync?.sync({ download: true }));
+        $('#cloudBackup').addEventListener('click', exportJSON);
+        $('#cloudLogout').addEventListener('click', async () => {
+          if (!cloudClient) return;
+          if (cloudSync.getInfo().dirty && !window.confirm('本设备还有尚未同步的修改，已保留在本地。确定退出吗？')) return;
+          const { error } = await cloudClient.auth.signOut({ scope: 'local' });
+          if (error) { setCloudMessage(error.message, true); return; }
+          await cloudSync.connect(null);
+        });
+      }
+
       function handleKeyboardShortcuts(event) {
-        if (state.mode !== 'presentation' || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+        if ($('#cloudDialog').open || state.mode !== 'presentation' || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
         const key = event.key;
         if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', '+', '=', '-'].includes(key)) event.preventDefault();
         if (key === 'ArrowLeft') setCurrentSlide(state.currentSlide - 1);
@@ -1071,9 +1456,15 @@
         $('#importBtn').addEventListener('click', () => elements.importInput.click());
         elements.importInput.addEventListener('change', event => importJSON(event.target.files[0]));
         $('#clearBtn').addEventListener('click', clearAllData);
-        $('#slidesToggle').addEventListener('click', () => document.body.classList.toggle('slides-collapsed'));
+        $('#slidesToggle').addEventListener('click', () => {
+          if (window.matchMedia('(max-width: 720px)').matches) {
+            document.body.classList.remove('notes-user-open');
+            document.body.classList.toggle('slides-mobile-open');
+          } else document.body.classList.toggle('slides-collapsed');
+        });
         $('#notesToggle').addEventListener('click', () => {
           if (window.matchMedia('(max-width: 930px)').matches) {
+            document.body.classList.remove('slides-mobile-open');
             document.body.classList.remove('notes-collapsed');
             document.body.classList.toggle('notes-user-open');
           } else {
@@ -1097,8 +1488,10 @@
       }
 
       bindEvents();
+      bindCloudEvents();
       renderAll();
       saveData({ toast: false });
+      initializeCloud();
 
       window.__presenterScriptTest = {
         getState: () => JSON.parse(JSON.stringify(state)),
