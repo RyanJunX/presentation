@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="演讲阅读优先的本地 Presenter Script 提词器">
+  <title>演讲者提词器 / Presenter Script</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Crect x='14' y='13' width='36' height='38' rx='5' fill='white'/%3E%3Cpath d='M21 24h22M21 32h17M21 40h20' stroke='%232563eb' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-2: #f7f9fc;
+      --surface-3: #edf3fb;
+      --text: #152033;
+      --muted: #69758a;
+      --faint: #8c97a8;
+      --border: #dce3ec;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #e9f1ff;
+      --accent-line: #9ebcf8;
+      --warning: #c2410c;
+      --warning-soft: #ffedd5;
+      --danger: #dc2626;
+      --danger-soft: #fee2e2;
+      --success: #15803d;
+      --shadow: 0 12px 32px rgba(30, 50, 80, .08);
+      --script-size: 32px;
+      --header-height: 116px;
+      --footer-height: 76px;
+      --sidebar-width: 266px;
+      --notes-width: 310px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 16px;
+      transition: background .2s ease, color .2s ease;
+    }
+
+    body.dark {
+      color-scheme: dark;
+      --bg: #0c111b;
+      --surface: #141c29;
+      --surface-2: #182231;
+      --surface-3: #1d2a3d;
+      --text: #f1f5fb;
+      --muted: #aab5c5;
+      --faint: #7f8ca0;
+      --border: #2b384a;
+      --accent: #60a5fa;
+      --accent-hover: #93c5fd;
+      --accent-soft: #162e54;
+      --accent-line: #315f9f;
+      --warning: #fb923c;
+      --warning-soft: #4b2816;
+      --danger: #f87171;
+      --danger-soft: #4d2025;
+      --success: #4ade80;
+      --shadow: 0 12px 34px rgba(0, 0, 0, .28);
+    }
+
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 34%, transparent);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: var(--header-height) minmax(0, 1fr) var(--footer-height);
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 18px;
+      padding: 14px 20px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 3px 18px rgba(30, 50, 80, .05);
+    }
+
+    .brand-row, .top-actions, .status-row, .timer-cluster, .mode-switch, .view-toggles,
+    .footer-nav, .editor-actions, .slide-item-actions { display: flex; align-items: center; }
+    .brand-row { gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto;
+      display: grid; place-items: center; background: var(--accent); color: white;
+      font-weight: 800; letter-spacing: -.04em; box-shadow: 0 7px 16px color-mix(in srgb, var(--accent) 24%, transparent);
+    }
+    .brand-copy { min-width: 0; }
+    .brand-copy h1 { margin: 0; font-size: 19px; line-height: 1.2; letter-spacing: -.02em; }
+    .brand-copy p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+    .status-row { gap: 16px; margin-top: 12px; }
+    .slide-status { font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .overall-progress { height: 7px; max-width: 500px; flex: 1; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+    .progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #60a5fa); transition: width .25s ease; }
+
+    .top-actions { justify-content: flex-end; align-content: center; flex-wrap: wrap; gap: 8px; }
+    .timer-cluster { gap: 9px; padding-right: 8px; border-right: 1px solid var(--border); }
+    .timer-display { min-width: 114px; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+    .timer-display.overtime { color: var(--warning); }
+
+    .btn {
+      min-height: 38px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+      background: var(--surface); color: var(--text); cursor: pointer; font-weight: 650; font-size: 14px;
+      transition: transform .12s ease, border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 44%, var(--border)); background: var(--surface-2); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { cursor: not-allowed; opacity: .42; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn.ghost { background: transparent; }
+    .btn.danger { color: var(--danger); }
+    .btn.icon { width: 38px; padding: 0; font-size: 16px; }
+    .btn.small { min-height: 32px; padding: 6px 9px; font-size: 13px; border-radius: 8px; }
+
+    .mode-switch { padding: 3px; border-radius: 11px; background: var(--surface-3); }
+    .mode-switch button { border: 0; background: transparent; color: var(--muted); border-radius: 8px; padding: 7px 11px; cursor: pointer; font-size: 14px; font-weight: 700; }
+    .mode-switch button.active { background: var(--surface); color: var(--accent); box-shadow: 0 2px 8px rgba(30, 50, 80, .08); }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(420px, 1fr) var(--notes-width);
+      gap: 14px;
+      padding: 14px;
+    }
+    body.slides-collapsed .workspace { grid-template-columns: 0 minmax(420px, 1fr) var(--notes-width); }
+    body.notes-collapsed .workspace { grid-template-columns: var(--sidebar-width) minmax(420px, 1fr) 0; }
+    body.slides-collapsed.notes-collapsed .workspace { grid-template-columns: 0 minmax(420px, 1fr) 0; }
+    body.slides-collapsed .slides-panel, body.notes-collapsed .notes-panel { opacity: 0; pointer-events: none; overflow: hidden; }
+
+    .panel {
+      min-width: 0; min-height: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 15px; box-shadow: var(--shadow); transition: opacity .18s ease;
+    }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px; border-bottom: 1px solid var(--border); }
+    .panel-heading h2 { margin: 0; font-size: 15px; letter-spacing: .025em; }
+    .panel-heading .meta { color: var(--muted); font-size: 13px; }
+
+    .slides-panel { display: flex; flex-direction: column; }
+    .slides-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; }
+    .slide-item {
+      position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px;
+      padding: 12px 10px; margin-bottom: 5px; border: 1px solid transparent; border-radius: 11px;
+      cursor: pointer; user-select: none; transition: background .15s ease, border-color .15s ease, transform .15s ease;
+    }
+    .slide-item:hover { background: var(--surface-2); }
+    .slide-item.active { background: var(--accent-soft); border-color: var(--accent-line); }
+    .slide-item.active::before { content: ""; position: absolute; left: -1px; top: 11px; bottom: 11px; width: 4px; border-radius: 0 4px 4px 0; background: var(--accent); }
+    .slide-item.dragging { opacity: .45; }
+    .slide-number { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--surface-3); color: var(--muted); font-size: 13px; font-weight: 800; }
+    .slide-item.active .slide-number { background: var(--accent); color: #fff; }
+    .slide-copy { min-width: 0; }
+    .slide-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 760; }
+    .slide-subtitle { margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
+    .slide-item-actions { grid-column: 2; gap: 5px; margin-top: 8px; }
+    .slide-item-actions button { border: 0; border-radius: 7px; padding: 4px 6px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px; }
+    .slide-item-actions button:hover { color: var(--accent); }
+    .slide-item-actions .delete:hover { color: var(--danger); }
+    .add-slide-wrap { padding: 10px; border-top: 1px solid var(--border); }
+    .add-slide-wrap .btn { width: 100%; }
+
+    .script-panel { display: flex; flex-direction: column; }
+    .script-header { padding: 24px 30px 18px; border-bottom: 1px solid var(--border); }
+    .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .13em; }
+    .script-header h2 { margin: 0; font-size: clamp(26px, 2.4vw, 38px); line-height: 1.15; letter-spacing: -.035em; }
+    .script-header .subtitle { margin: 7px 0 0; color: var(--muted); font-size: 16px; }
+    .script-reader { flex: 1; overflow-y: auto; padding: 24px 30px 48px; scroll-behavior: smooth; scrollbar-width: thin; }
+    .paragraph {
+      position: relative; margin: 0 0 16px; padding: 18px 20px; border: 1px solid transparent; border-radius: 13px;
+      color: color-mix(in srgb, var(--text) 70%, var(--muted)); font-size: var(--script-size); line-height: 1.72;
+      letter-spacing: .006em; cursor: pointer; transition: color .16s ease, opacity .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+    .paragraph:hover { background: var(--surface-2); }
+    .paragraph.current {
+      background: var(--accent-soft); border-color: var(--accent-line); color: var(--text); font-weight: 610;
+      box-shadow: inset 5px 0 0 var(--accent), 0 5px 18px color-mix(in srgb, var(--accent) 9%, transparent);
+    }
+    .paragraph:not(.current) { opacity: .72; }
+    .cue-tag { display: inline-flex; align-items: center; vertical-align: .12em; margin: 0 .12em; padding: .16em .52em; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); font-size: .56em; line-height: 1.55; font-weight: 800; white-space: nowrap; }
+    .cue-tag.emphasis { background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 35%, transparent); color: var(--warning); }
+    .cue-tag.pause { background: var(--surface-3); border-color: var(--border); color: var(--muted); }
+    .empty-copy { padding: 44px 24px; color: var(--muted); text-align: center; font-size: 17px; }
+
+    .editor { flex: 1; overflow-y: auto; padding: 22px 28px 38px; }
+    .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 13px; font-weight: 760; }
+    .field input, .field textarea {
+      width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px;
+      background: var(--surface-2); color: var(--text); line-height: 1.55; resize: vertical;
+    }
+    .field textarea { min-height: 120px; }
+    .field textarea.script-input { min-height: 265px; font-size: 17px; }
+    .field-hint { margin: 6px 0 0; color: var(--faint); font-size: 12px; }
+    .editor-actions { justify-content: space-between; gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+    .notes-panel { display: flex; flex-direction: column; }
+    .notes-scroll { flex: 1; overflow-y: auto; padding: 15px; scrollbar-width: thin; }
+    .note-card { padding: 15px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+    .note-card:last-child { margin-bottom: 0; }
+    .note-card h3 { margin: 0 0 11px; font-size: 13px; letter-spacing: .045em; }
+    .estimated { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+    .estimated strong { color: var(--accent); font-size: 15px; }
+    .note-list { margin: 0; padding-left: 20px; color: var(--text); font-size: 14px; line-height: 1.7; }
+    .note-list li + li { margin-top: 5px; }
+    .note-empty { margin: 0; color: var(--faint); font-size: 13px; line-height: 1.6; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat { padding: 9px 10px; border-radius: 9px; background: var(--surface); }
+    .stat span { display: block; color: var(--muted); font-size: 11px; }
+    .stat strong { display: block; margin-top: 3px; font-size: 15px; font-variant-numeric: tabular-nums; }
+    .paragraph-progress { height: 7px; margin-top: 13px; border-radius: 999px; overflow: hidden; background: var(--surface-3); }
+    .keyboard-list { display: grid; grid-template-columns: auto 1fr; gap: 7px 10px; align-items: center; color: var(--muted); font-size: 12px; }
+    kbd { min-width: 29px; padding: 3px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; background: var(--surface); color: var(--text); text-align: center; font: 700 11px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+    .footer {
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
+      padding: 11px 20px; border-top: 1px solid var(--border); background: var(--surface); box-shadow: 0 -3px 18px rgba(30, 50, 80, .04);
+    }
+    .footer .prev { justify-self: start; }
+    .footer .next { justify-self: end; }
+    .nav-btn { min-width: 138px; min-height: 46px; }
+    .dots { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 150px; }
+    .dot { width: 8px; height: 8px; border: 0; border-radius: 999px; padding: 0; background: var(--border); cursor: pointer; transition: width .18s ease, background .18s ease; }
+    .dot:hover { background: var(--accent-line); }
+    .dot.active { width: 24px; background: var(--accent); }
+    .dot-ellipsis { color: var(--faint); font-size: 12px; }
+
+    .save-status { position: fixed; right: 18px; bottom: 86px; z-index: 20; display: flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--surface) 94%, transparent); color: var(--muted); box-shadow: var(--shadow); font-size: 12px; opacity: 0; transform: translateY(5px); pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
+    .save-status.show { opacity: 1; transform: translateY(0); }
+    .save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+
+    .mobile-only { display: none; }
+    .hidden { display: none !important; }
+    .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 1180px) {
+      :root { --sidebar-width: 230px; --notes-width: 270px; }
+      .brand-copy p { display: none; }
+      .btn .optional-label { display: none; }
+      .topbar { grid-template-columns: minmax(210px, .8fr) auto; padding-left: 14px; padding-right: 14px; }
+      .workspace { padding: 10px; gap: 10px; }
+      .script-header { padding-left: 24px; padding-right: 24px; }
+      .script-reader { padding-left: 22px; padding-right: 22px; }
+    }
+
+    @media (max-width: 930px) {
+      :root { --header-height: 158px; --notes-width: 260px; }
+      .topbar { grid-template-columns: 1fr; }
+      .top-actions { justify-content: flex-start; }
+      body:not(.notes-user-open) .workspace { grid-template-columns: var(--sidebar-width) minmax(380px, 1fr) 0; }
+      body:not(.notes-user-open) .notes-panel { opacity: 0; pointer-events: none; }
+      body.notes-user-open .workspace { grid-template-columns: 0 minmax(380px, 1fr) var(--notes-width); }
+      body.notes-user-open .slides-panel { opacity: 0; pointer-events: none; }
+      .view-toggles { display: flex; }
+    }
+
+    @media (max-width: 720px) {
+      :root { --sidebar-width: 0px; --header-height: 170px; --footer-height: 68px; }
+      body, body.slides-collapsed, body.notes-collapsed, body.slides-collapsed.notes-collapsed { --sidebar-width: 0px; --notes-width: 0px; }
+      .workspace, body.slides-collapsed .workspace, body.notes-collapsed .workspace, body.slides-collapsed.notes-collapsed .workspace { grid-template-columns: 0 minmax(0, 1fr) 0; padding: 7px; gap: 0; }
+      .slides-panel, .notes-panel { opacity: 0; pointer-events: none; }
+      .brand-copy h1 { font-size: 17px; }
+      .timer-cluster { border-right: 0; }
+      .top-actions { gap: 6px; }
+      .mode-switch button { padding: 7px 8px; }
+      .script-header { padding: 17px 18px 14px; }
+      .script-reader { padding: 15px 14px 32px; }
+      .paragraph { padding: 14px 15px; line-height: 1.58; }
+      .editor { padding: 17px 15px 28px; }
+      .editor-grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: auto; }
+      .footer { padding: 9px 10px; }
+      .nav-btn { min-width: 108px; min-height: 44px; padding: 8px 10px; }
+      .dots { min-width: 80px; gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-row">
+          <div class="brand-mark" aria-hidden="true">PS</div>
+          <div class="brand-copy">
+            <h1>演讲者提词器 / Presenter Script</h1>
+            <p>演讲阅读优先 · 本地保存</p>
+          </div>
+        </div>
+        <div class="status-row">
+          <div class="slide-status" id="slideStatus">Slide 1 / 10</div>
+          <div class="overall-progress" aria-label="幻灯片总体进度"><div class="progress-fill" id="overallProgress"></div></div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <div class="timer-cluster">
+          <span class="timer-display" id="timerDisplay">00:00 / 00:00</span>
+          <button class="btn primary" id="timerToggle" type="button">开始计时</button>
+          <button class="btn icon" id="timerReset" type="button" title="重置计时" aria-label="重置计时">↺</button>
+        </div>
+        <div class="mode-switch" aria-label="工作模式">
+          <button type="button" id="presentModeBtn" class="active">演讲</button>
+          <button type="button" id="editModeBtn">编辑</button>
+        </div>
+        <button class="btn icon" id="fontDown" type="button" title="减小正文字体" aria-label="减小正文字体">A−</button>
+        <button class="btn icon" id="fontUp" type="button" title="增大正文字体" aria-label="增大正文字体">A+</button>
+        <button class="btn" id="themeToggle" type="button"><span id="themeIcon">◐</span> <span class="optional-label" id="themeLabel">深色</span></button>
+        <button class="btn" id="fullscreenBtn" type="button">全屏</button>
+        <div class="view-toggles">
+          <button class="btn icon" id="slidesToggle" type="button" title="显示或隐藏 Slides" aria-label="显示或隐藏 Slides">☷</button>
+          <button class="btn icon" id="notesToggle" type="button" title="显示或隐藏 Notes" aria-label="显示或隐藏 Notes">ⓘ</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel slides-panel" aria-label="Slides 列表">
+        <div class="panel-heading">
+          <h2>SLIDES</h2>
+          <span class="meta" id="slideCount">10 页</span>
+        </div>
+        <div class="slides-list" id="slidesList"></div>
+        <div class="add-slide-wrap edit-only hidden">
+          <button class="btn" id="addSlideBtn" type="button">＋ 添加 Slide</button>
+        </div>
+      </aside>
+
+      <section class="panel script-panel" aria-label="当前讲稿">
+        <div class="script-header">
+          <p class="eyebrow">当前幻灯片 · <span id="currentSlideNumber">01</span></p>
+          <h2 id="currentTitle">Introduction</h2>
+          <p class="subtitle" id="currentSubtitle">研究背景</p>
+        </div>
+        <div class="script-reader" id="scriptReader"></div>
+        <div class="editor hidden" id="editorPanel">
+          <div class="editor-grid">
+            <div class="field">
+              <label for="editTitle">Slide title</label>
+              <input id="editTitle" type="text" maxlength="120">
+            </div>
+            <div class="field">
+              <label for="editSubtitle">Subtitle</label>
+              <input id="editSubtitle" type="text" maxlength="160">
+            </div>
+            <div class="field full">
+              <label for="editScript">Script</label>
+              <textarea class="script-input" id="editScript" placeholder="用空行分隔段落；[提示内容] 会显示为标签。"></textarea>
+              <p class="field-hint">用空行分段；演讲模式会自动识别 [停顿]、[强调]、[指向图片] 等提示标签。</p>
+            </div>
+            <div class="field">
+              <label for="editKeyPoints">本页要点（每行一条）</label>
+              <textarea id="editKeyPoints"></textarea>
+            </div>
+            <div class="field">
+              <label for="editExtraNotes">补充说明（每行一条）</label>
+              <textarea id="editExtraNotes"></textarea>
+            </div>
+            <div class="field">
+              <label for="editEstimatedTime">本页预计时间（秒）</label>
+              <input id="editEstimatedTime" type="number" min="0" max="86400" step="5">
+            </div>
+            <div class="field">
+              <label for="editTargetTime">总目标时长（秒，可留空）</label>
+              <input id="editTargetTime" type="number" min="0" max="86400" step="30" placeholder="留空则自动汇总每页时间">
+            </div>
+          </div>
+          <div class="editor-actions">
+            <div>
+              <button class="btn" id="exportBtn" type="button">导出 JSON</button>
+              <button class="btn" id="importBtn" type="button">导入 JSON</button>
+              <input class="hidden" id="importInput" type="file" accept="application/json,.json">
+            </div>
+            <button class="btn danger" id="clearBtn" type="button">清除全部数据</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel notes-panel" aria-label="演讲提示">
+        <div class="panel-heading">
+          <h2>演讲提示 / NOTES</h2>
+          <span class="meta" id="saveStatusInline">已保存</span>
+        </div>
+        <div class="notes-scroll">
+          <section class="note-card">
+            <h3>本页要点</h3>
+            <div class="estimated"><span>本页预计</span><strong id="estimatedTime">0秒</strong></div>
+            <ol class="note-list" id="keyPointsList"></ol>
+            <p class="note-empty hidden" id="keyPointsEmpty">尚未添加要点。</p>
+          </section>
+          <section class="note-card">
+            <h3>补充说明</h3>
+            <ul class="note-list" id="extraNotesList"></ul>
+            <p class="note-empty hidden" id="extraNotesEmpty">尚未添加补充说明。</p>
+          </section>
+          <section class="note-card">
+            <h3>进度与统计</h3>
+            <div class="stats-grid">
+              <div class="stat"><span>字数</span><strong id="wordCount">0</strong></div>
+              <div class="stat"><span>段落</span><strong id="paragraphCount">0 / 0</strong></div>
+            </div>
+            <div class="paragraph-progress" aria-label="当前段落进度"><div class="progress-fill" id="paragraphProgress"></div></div>
+          </section>
+          <section class="note-card presentation-only">
+            <h3>快捷键</h3>
+            <div class="keyboard-list">
+              <kbd>← →</kbd><span>切换幻灯片</span>
+              <kbd>↑ ↓</kbd><span>切换段落</span>
+              <kbd>Space</kbd><span>下一页</span>
+              <kbd>F</kbd><span>全屏</span>
+              <kbd>+ −</kbd><span>调整字体</span>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      <button class="btn nav-btn prev" id="prevSlideBtn" type="button">◀ 上一页</button>
+      <div class="dots" id="progressDots" aria-label="Slide 快速导航"></div>
+      <button class="btn primary nav-btn next" id="nextSlideBtn" type="button">下一页 ▶</button>
+    </footer>
+  </div>
+
+  <div class="save-status" id="saveToast" role="status" aria-live="polite"><span class="save-dot"></span><span>已自动保存</span></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'presenterScriptDataV1';
+      const FONT_MIN = 22;
+      const FONT_MAX = 48;
+      const FONT_STEP = 2;
+      let saveTimer = null;
+      let toastTimer = null;
+      let timerInterval = null;
+      let timerStartedAt = 0;
+      let draggedSlideId = null;
+
+      const $ = (selector) => document.querySelector(selector);
+      const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+      const elements = {
+        slidesList: $('#slidesList'), slideCount: $('#slideCount'), slideStatus: $('#slideStatus'),
+        overallProgress: $('#overallProgress'), currentSlideNumber: $('#currentSlideNumber'),
+        currentTitle: $('#currentTitle'), currentSubtitle: $('#currentSubtitle'), scriptReader: $('#scriptReader'),
+        editorPanel: $('#editorPanel'), estimatedTime: $('#estimatedTime'), keyPointsList: $('#keyPointsList'),
+        keyPointsEmpty: $('#keyPointsEmpty'), extraNotesList: $('#extraNotesList'), extraNotesEmpty: $('#extraNotesEmpty'),
+        wordCount: $('#wordCount'), paragraphCount: $('#paragraphCount'), paragraphProgress: $('#paragraphProgress'),
+        progressDots: $('#progressDots'), prevSlideBtn: $('#prevSlideBtn'), nextSlideBtn: $('#nextSlideBtn'),
+        presentModeBtn: $('#presentModeBtn'), editModeBtn: $('#editModeBtn'), timerDisplay: $('#timerDisplay'),
+        timerToggle: $('#timerToggle'), saveToast: $('#saveToast'), saveStatusInline: $('#saveStatusInline'),
+        editTitle: $('#editTitle'), editSubtitle: $('#editSubtitle'), editScript: $('#editScript'),
+        editKeyPoints: $('#editKeyPoints'), editExtraNotes: $('#editExtraNotes'),
+        editEstimatedTime: $('#editEstimatedTime'), editTargetTime: $('#editTargetTime'),
+        importInput: $('#importInput'), themeLabel: $('#themeLabel')
+      };
+
+      function newId() {
+        return `slide_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function createDemoData() {
+        const slides = [
+          {
+            title: 'Introduction', subtitle: '研究背景', estimatedTime: 70,
+            script: ['大家好，今天我汇报的主题是多模态医学图像融合方法 UniFuse。', '在开始之前，我会先简要介绍研究背景和临床需求。[停顿]'],
+            notes: { keyPoints: ['说明汇报主题', '交代临床背景'], extraNotes: ['开场放慢语速', '与听众保持目光交流'] }
+          },
+          {
+            title: 'Motivation', subtitle: '研究动机', estimatedTime: 80,
+            script: ['不同成像模态提供互补信息，但单一模态往往难以同时呈现结构与功能细节。', '[强调] 我们希望在保留结构边缘的同时，提高关键组织区域的对比度。'],
+            notes: { keyPoints: ['说明多模态互补性', '指出单模态限制'], extraNotes: ['指向对比示例图'] }
+          },
+          {
+            title: 'Challenges', subtitle: '面临的挑战', estimatedTime: 90,
+            script: ['第一个挑战是跨模态特征分布存在明显差异。', '第二个挑战是融合过程容易丢失细粒度结构。', '第三个挑战是模型需要在性能与计算开销之间取得平衡。'],
+            notes: { keyPoints: ['跨模态差异', '细节保真', '效率平衡'], extraNotes: ['三个挑战依次讲，不展开解决方案'] }
+          },
+          {
+            title: 'Overview', subtitle: '方法概览', estimatedTime: 85,
+            script: ['针对这些挑战，我们提出了 UniFuse 整体框架。', '框架由输入编码、DAPL、OUFR 和特征聚合四个阶段组成。[指向流程图]'],
+            notes: { keyPoints: ['先总览，不讲细节', '引出四个阶段'], extraNotes: ['沿流程图从左到右讲解'] }
+          },
+          {
+            title: 'Architecture', subtitle: '模型整体架构', estimatedTime: 110,
+            script: [
+              '接下来我介绍我们方法的整体架构。[指向左侧 CT 图] 整个网络以配准后的 CT 与 MRI 图像作为双路输入。',
+              '首先，在输入端，我们分别提取两种模态的浅层特征，以保留各自独有的纹理与强度信息。[停顿]',
+              '然后，特征进入 DAPL 模块。[强调：这里是核心模块] 它通过动态对齐与互补学习，缩小跨模态差异，同时保留有判别力的信息。',
+              '随后，OUFR 模块进一步恢复多尺度结构，并通过残差路径稳定信息传递。[指向中间模块]',
+              '最后，经过 OUFR 与特征聚合模块完成融合，得到兼具结构清晰度和组织对比度的结果。[切下一页]'
+            ],
+            notes: {
+              keyPoints: ['先讲输入模态', '再讲 DAPL', '说明 OUFR 的作用', '最后讲特征聚合'],
+              extraNotes: ['适当指向模型结构图', '强调多模态互补性', 'DAPL 是本文核心创新', '最后用一句话总结输出']
+            }
+          },
+          {
+            title: 'Experiments', subtitle: '实验设置', estimatedTime: 75,
+            script: ['实验使用公开的多模态医学图像数据，并采用统一的预处理流程。', '我们与多个代表性方法进行比较，同时报告定量指标和视觉结果。'],
+            notes: { keyPoints: ['数据集与预处理', '对比方法', '评价指标'], extraNotes: ['不逐项念参数表'] }
+          },
+          {
+            title: 'Results', subtitle: '主要结果', estimatedTime: 100,
+            script: ['从定量结果来看，我们的方法在主要指标上取得了稳定提升。', '[强调] 更重要的是，视觉结果显示结构边缘更加清晰，低对比区域也得到更好保留。', '这些结果说明模型能够有效利用不同模态之间的互补信息。'],
+            notes: { keyPoints: ['先定量后定性', '突出稳定提升', '回扣多模态互补'], extraNotes: ['只读关键数字', '留时间让听众看图'] }
+          },
+          {
+            title: 'Ablation', subtitle: '消融实验', estimatedTime: 85,
+            script: ['消融实验分别验证了 DAPL、OUFR 与聚合策略的贡献。', '移除任一关键模块后，性能都会出现不同程度下降。[停顿]', '其中 DAPL 对跨模态对齐的贡献最为明显。'],
+            notes: { keyPoints: ['逐个说明模块贡献', '突出 DAPL'], extraNotes: ['避免逐格读表'] }
+          },
+          {
+            title: 'Conclusion', subtitle: '总结', estimatedTime: 70,
+            script: ['总结来说，我们提出了一个面向多模态医学图像融合的统一框架。', '该方法兼顾跨模态对齐、结构恢复和融合质量，并在实验中验证了有效性。'],
+            notes: { keyPoints: ['一句话总结问题', '一句话总结方法', '一句话总结结果'], extraNotes: ['语速放慢'] }
+          },
+          {
+            title: 'Future Work', subtitle: '未来工作', estimatedTime: 55,
+            script: ['未来我们将进一步研究弱配准场景下的鲁棒融合，并探索更轻量的部署方案。', '我的汇报到这里，谢谢大家，欢迎提问。'],
+            notes: { keyPoints: ['弱配准鲁棒性', '轻量化部署', '致谢'], extraNotes: ['结束后看向听众'] }
+          }
+        ].map(slide => ({ id: newId(), ...slide }));
+
+        return {
+          version: 1,
+          slides,
+          currentSlide: 4,
+          paragraphIndices: Object.fromEntries(slides.map(s => [s.id, 0])),
+          fontSize: 32,
+          darkMode: false,
+          mode: 'presentation',
+          targetTime: null,
+          elapsedSeconds: 0,
+          timerRunning: false
+        };
+      }
+
+      function normalizeSlide(slide, index) {
+        const script = Array.isArray(slide?.script)
+          ? slide.script.map(String).map(s => s.trim()).filter(Boolean)
+          : splitParagraphs(String(slide?.script || ''));
+        const notes = slide?.notes && typeof slide.notes === 'object' ? slide.notes : {};
+        return {
+          id: typeof slide?.id === 'string' && slide.id ? slide.id : newId(),
+          title: String(slide?.title || `Slide ${index + 1}`),
+          subtitle: String(slide?.subtitle || ''),
+          script,
+          notes: {
+            keyPoints: normalizeList(notes.keyPoints),
+            extraNotes: normalizeList(notes.extraNotes)
+          },
+          estimatedTime: clampNumber(slide?.estimatedTime, 0, 86400, 60)
+        };
+      }
+
+      function normalizeList(value) {
+        if (Array.isArray(value)) return value.map(String).map(s => s.trim()).filter(Boolean);
+        return String(value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      }
+
+      function clampNumber(value, min, max, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+      }
+
+      function normalizeData(raw) {
+        const fallback = createDemoData();
+        if (!raw || !Array.isArray(raw.slides) || !raw.slides.length) return fallback;
+        const slides = raw.slides.map(normalizeSlide);
+        const paragraphIndices = {};
+        slides.forEach(slide => {
+          paragraphIndices[slide.id] = clampNumber(raw.paragraphIndices?.[slide.id], 0, Math.max(0, slide.script.length - 1), 0);
+        });
+        return {
+          version: 1,
+          slides,
+          currentSlide: clampNumber(raw.currentSlide, 0, slides.length - 1, 0),
+          paragraphIndices,
+          fontSize: clampNumber(raw.fontSize, FONT_MIN, FONT_MAX, 32),
+          darkMode: Boolean(raw.darkMode),
+          mode: raw.mode === 'edit' ? 'edit' : 'presentation',
+          targetTime: raw.targetTime === null || raw.targetTime === '' || raw.targetTime === undefined ? null : clampNumber(raw.targetTime, 0, 86400, 0),
+          elapsedSeconds: clampNumber(raw.elapsedSeconds, 0, 604800, 0),
+          timerRunning: false
+        };
+      }
+
+      function loadData() {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          return stored ? normalizeData(JSON.parse(stored)) : createDemoData();
+        } catch (error) {
+          console.warn('无法读取已保存数据，已载入 Demo。', error);
+          return createDemoData();
+        }
+      }
+
+      let state = loadData();
+
+      function saveData(options = {}) {
+        try {
+          const payload = { ...state, timerRunning: false };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          elements.saveStatusInline.textContent = '已保存';
+          if (options.toast !== false) showSaveToast();
+        } catch (error) {
+          elements.saveStatusInline.textContent = '保存失败';
+          console.error('保存失败', error);
+        }
+      }
+
+      function scheduleSave() {
+        elements.saveStatusInline.textContent = '保存中…';
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => saveData(), 400);
+      }
+
+      function showSaveToast() {
+        elements.saveToast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => elements.saveToast.classList.remove('show'), 1300);
+      }
+
+      function getCurrentSlide() {
+        return state.slides[state.currentSlide];
+      }
+
+      function getCurrentParagraphIndex() {
+        const slide = getCurrentSlide();
+        return slide ? (state.paragraphIndices[slide.id] || 0) : 0;
+      }
+
+      function splitParagraphs(text) {
+        return String(text || '').split(/\r?\n\s*\r?\n/).map(s => s.trim()).filter(Boolean);
+      }
+
+      function escapeHTML(value) {
+        return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+      }
+
+      function parseCueTags(text) {
+        return escapeHTML(text).replace(/\[([^\]\n]+)\]/g, (_, content) => {
+          const raw = content.trim();
+          const className = /强调|核心|重点/.test(raw) ? 'emphasis' : /停顿|等待|慢/.test(raw) ? 'pause' : '';
+          return `<span class="cue-tag ${className}">[${raw}]</span>`;
+        });
+      }
+
+      function renderAll() {
+        applyPreferences();
+        renderSlides();
+        renderCurrentSlide();
+        renderNotes();
+        renderFooter();
+        renderTimer();
+        renderMode();
+      }
+
+      function applyPreferences() {
+        document.body.classList.toggle('dark', state.darkMode);
+        document.documentElement.style.setProperty('--script-size', `${state.fontSize}px`);
+        elements.themeLabel.textContent = state.darkMode ? '浅色' : '深色';
+      }
+
+      function renderSlides() {
+        elements.slidesList.innerHTML = '';
+        state.slides.forEach((slide, index) => {
+          const item = document.createElement('div');
+          item.className = `slide-item${index === state.currentSlide ? ' active' : ''}`;
+          item.dataset.index = index;
+          item.dataset.id = slide.id;
+          item.tabIndex = 0;
+          item.setAttribute('role', 'button');
+          item.setAttribute('aria-label', `打开第 ${index + 1} 页：${slide.title}`);
+          item.draggable = state.mode === 'edit';
+          item.innerHTML = `
+            <div class="slide-number">${index + 1}</div>
+            <div class="slide-copy">
+              <div class="slide-title">${escapeHTML(slide.title)}</div>
+              <div class="slide-subtitle">${escapeHTML(slide.subtitle || '—')}</div>
+            </div>
+            ${state.mode === 'edit' ? `<div class="slide-item-actions">
+              <button type="button" data-action="up" aria-label="上移第 ${index + 1} 页" ${index === 0 ? 'disabled' : ''}>↑ 上移</button>
+              <button type="button" data-action="down" aria-label="下移第 ${index + 1} 页" ${index === state.slides.length - 1 ? 'disabled' : ''}>↓ 下移</button>
+              <button type="button" class="delete" data-action="delete" aria-label="删除第 ${index + 1} 页">删除</button>
+            </div>` : ''}`;
+          item.addEventListener('click', event => {
+            const actionButton = event.target.closest('[data-action]');
+            if (actionButton) {
+              event.stopPropagation();
+              const action = actionButton.dataset.action;
+              if (action === 'delete') deleteSlide(index);
+              if (action === 'up') moveSlide(index, index - 1);
+              if (action === 'down') moveSlide(index, index + 1);
+              return;
+            }
+            setCurrentSlide(index);
+          });
+          item.addEventListener('keydown', event => {
+            if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('button')) {
+              event.preventDefault(); setCurrentSlide(index);
+            }
+          });
+          item.addEventListener('dragstart', () => { draggedSlideId = slide.id; item.classList.add('dragging'); });
+          item.addEventListener('dragend', () => { draggedSlideId = null; item.classList.remove('dragging'); });
+          item.addEventListener('dragover', event => { if (state.mode === 'edit') event.preventDefault(); });
+          item.addEventListener('drop', event => {
+            event.preventDefault();
+            const from = state.slides.findIndex(s => s.id === draggedSlideId);
+            if (from >= 0 && from !== index) moveSlide(from, index);
+          });
+          elements.slidesList.appendChild(item);
+        });
+        elements.slideCount.textContent = `${state.slides.length} 页`;
+        const currentItem = elements.slidesList.querySelector('.slide-item.active');
+        currentItem?.scrollIntoView({ block: 'nearest' });
+      }
+
+      function renderCurrentSlide() {
+        const slide = getCurrentSlide();
+        if (!slide) return;
+        const total = state.slides.length;
+        const progress = total > 1 ? (state.currentSlide / (total - 1)) * 100 : 100;
+        elements.slideStatus.textContent = `Slide ${state.currentSlide + 1} / ${total}`;
+        elements.overallProgress.style.width = `${progress}%`;
+        elements.currentSlideNumber.textContent = String(state.currentSlide + 1).padStart(2, '0');
+        elements.currentTitle.textContent = slide.title || 'Untitled Slide';
+        elements.currentSubtitle.textContent = slide.subtitle || ' ';
+
+        if (state.mode === 'presentation') {
+          elements.scriptReader.innerHTML = '';
+          if (!slide.script.length) {
+            elements.scriptReader.innerHTML = '<div class="empty-copy">本页暂无讲稿。切换到编辑模式即可添加。</div>';
+          } else {
+            slide.script.forEach((paragraph, index) => {
+              const node = document.createElement('p');
+              node.className = `paragraph${index === getCurrentParagraphIndex() ? ' current' : ''}`;
+              node.dataset.index = index;
+              node.innerHTML = parseCueTags(paragraph);
+              node.addEventListener('click', () => setCurrentParagraph(index));
+              elements.scriptReader.appendChild(node);
+            });
+          }
+        } else {
+          elements.editTitle.value = slide.title;
+          elements.editSubtitle.value = slide.subtitle;
+          elements.editScript.value = slide.script.join('\n\n');
+          elements.editKeyPoints.value = slide.notes.keyPoints.join('\n');
+          elements.editExtraNotes.value = slide.notes.extraNotes.join('\n');
+          elements.editEstimatedTime.value = slide.estimatedTime;
+          elements.editTargetTime.value = state.targetTime ?? '';
+        }
+      }
+
+      function renderNotes() {
+        const slide = getCurrentSlide();
+        const paragraphIndex = getCurrentParagraphIndex();
+        const paragraphs = slide.script.length;
+        elements.estimatedTime.textContent = formatDurationWords(slide.estimatedTime);
+        renderList(elements.keyPointsList, elements.keyPointsEmpty, slide.notes.keyPoints, true);
+        renderList(elements.extraNotesList, elements.extraNotesEmpty, slide.notes.extraNotes, false);
+        elements.wordCount.textContent = countReadableCharacters(slide.script.join(' '));
+        elements.paragraphCount.textContent = paragraphs ? `${paragraphIndex + 1} / ${paragraphs}` : '0 / 0';
+        elements.paragraphProgress.style.width = `${paragraphs ? ((paragraphIndex + 1) / paragraphs) * 100 : 0}%`;
+      }
+
+      function renderList(listElement, emptyElement, items) {
+        listElement.innerHTML = items.map(item => `<li>${escapeHTML(item)}</li>`).join('');
+        listElement.classList.toggle('hidden', !items.length);
+        emptyElement.classList.toggle('hidden', Boolean(items.length));
+      }
+
+      function countReadableCharacters(text) {
+        return String(text).replace(/\[[^\]]*\]/g, '').replace(/\s/g, '').length;
+      }
+
+      function renderFooter() {
+        elements.prevSlideBtn.disabled = state.currentSlide <= 0;
+        elements.nextSlideBtn.disabled = state.currentSlide >= state.slides.length - 1;
+        elements.progressDots.innerHTML = '';
+        const total = state.slides.length;
+        const visible = getVisibleDotIndices(total, state.currentSlide);
+        let previous = -2;
+        visible.forEach(index => {
+          if (index - previous > 1 && previous >= 0) {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'dot-ellipsis'; ellipsis.textContent = '…';
+            elements.progressDots.appendChild(ellipsis);
+          }
+          const dot = document.createElement('button');
+          dot.type = 'button';
+          dot.className = `dot${index === state.currentSlide ? ' active' : ''}`;
+          dot.title = `Slide ${index + 1}: ${state.slides[index].title}`;
+          dot.setAttribute('aria-label', dot.title);
+          dot.addEventListener('click', () => setCurrentSlide(index));
+          elements.progressDots.appendChild(dot);
+          previous = index;
+        });
+      }
+
+      function getVisibleDotIndices(total, current) {
+        if (total <= 10) return Array.from({ length: total }, (_, i) => i);
+        const set = new Set([0, total - 1]);
+        const start = Math.max(1, Math.min(current - 3, total - 8));
+        for (let i = start; i < Math.min(total - 1, start + 7); i++) set.add(i);
+        return [...set].sort((a, b) => a - b);
+      }
+
+      function renderMode() {
+        const editing = state.mode === 'edit';
+        elements.presentModeBtn.classList.toggle('active', !editing);
+        elements.editModeBtn.classList.toggle('active', editing);
+        elements.scriptReader.classList.toggle('hidden', editing);
+        elements.editorPanel.classList.toggle('hidden', !editing);
+        $$('.edit-only').forEach(el => el.classList.toggle('hidden', !editing));
+        $$('.presentation-only').forEach(el => el.classList.toggle('hidden', editing));
+      }
+
+      function setCurrentSlide(index) {
+        const safeIndex = Math.max(0, Math.min(state.slides.length - 1, Number(index)));
+        if (safeIndex === state.currentSlide) return;
+        state.currentSlide = safeIndex;
+        const slide = getCurrentSlide();
+        state.paragraphIndices[slide.id] = 0;
+        renderSlides(); renderCurrentSlide(); renderNotes(); renderFooter();
+        scheduleSave();
+      }
+
+      function setCurrentParagraph(index, options = {}) {
+        const slide = getCurrentSlide();
+        if (!slide.script.length) return;
+        const safeIndex = Math.max(0, Math.min(slide.script.length - 1, Number(index)));
+        state.paragraphIndices[slide.id] = safeIndex;
+        $$('.paragraph').forEach((node, i) => node.classList.toggle('current', i === safeIndex));
+        renderNotes();
+        if (options.scroll !== false) {
+          elements.scriptReader.querySelector('.paragraph.current')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        scheduleSave();
+      }
+
+      function addSlide() {
+        const slide = normalizeSlide({
+          id: newId(), title: 'New Slide', subtitle: '添加副标题', script: ['在这里输入本页演讲稿。'],
+          notes: { keyPoints: [], extraNotes: [] }, estimatedTime: 60
+        }, state.slides.length);
+        state.slides.push(slide);
+        state.paragraphIndices[slide.id] = 0;
+        state.currentSlide = state.slides.length - 1;
+        renderAll(); scheduleSave();
+        requestAnimationFrame(() => elements.editTitle.select());
+      }
+
+      function deleteSlide(index) {
+        if (state.slides.length === 1) {
+          window.alert('至少需要保留一页 Slide。');
+          return;
+        }
+        const slide = state.slides[index];
+        if (!window.confirm(`确定删除 Slide ${index + 1}“${slide.title}”吗？`)) return;
+        state.slides.splice(index, 1);
+        delete state.paragraphIndices[slide.id];
+        state.currentSlide = Math.min(state.currentSlide, state.slides.length - 1);
+        renderAll(); scheduleSave();
+      }
+
+      function moveSlide(fromIndex, toIndex) {
+        if (fromIndex === toIndex || toIndex < 0 || toIndex >= state.slides.length) return;
+        const currentId = getCurrentSlide().id;
+        const [moved] = state.slides.splice(fromIndex, 1);
+        state.slides.splice(toIndex, 0, moved);
+        state.currentSlide = state.slides.findIndex(slide => slide.id === currentId);
+        renderAll(); scheduleSave();
+      }
+
+      function updateCurrentSlideFromEditor() {
+        const slide = getCurrentSlide();
+        slide.title = elements.editTitle.value.trim() || 'Untitled Slide';
+        slide.subtitle = elements.editSubtitle.value.trim();
+        slide.script = splitParagraphs(elements.editScript.value);
+        slide.notes.keyPoints = normalizeList(elements.editKeyPoints.value);
+        slide.notes.extraNotes = normalizeList(elements.editExtraNotes.value);
+        slide.estimatedTime = clampNumber(elements.editEstimatedTime.value, 0, 86400, 0);
+        state.targetTime = elements.editTargetTime.value === '' ? null : clampNumber(elements.editTargetTime.value, 0, 86400, 0);
+        state.paragraphIndices[slide.id] = Math.min(getCurrentParagraphIndex(), Math.max(0, slide.script.length - 1));
+        renderSlides(); renderNotes(); renderFooter(); renderTimer();
+        elements.currentTitle.textContent = slide.title;
+        elements.currentSubtitle.textContent = slide.subtitle || ' ';
+        scheduleSave();
+      }
+
+      function toggleEditMode(mode) {
+        state.mode = mode === 'edit' ? 'edit' : 'presentation';
+        renderMode(); renderSlides(); renderCurrentSlide(); renderNotes();
+        scheduleSave();
+      }
+
+      function getTargetSeconds() {
+        if (state.targetTime !== null) return state.targetTime;
+        return state.slides.reduce((sum, slide) => sum + (Number(slide.estimatedTime) || 0), 0);
+      }
+
+      function getElapsedSeconds() {
+        if (!state.timerRunning) return state.elapsedSeconds;
+        return state.elapsedSeconds + Math.floor((Date.now() - timerStartedAt) / 1000);
+      }
+
+      function startTimer() {
+        if (state.timerRunning) return;
+        timerStartedAt = Date.now();
+        state.timerRunning = true;
+        timerInterval = window.setInterval(renderTimer, 250);
+        renderTimer();
+      }
+
+      function pauseTimer() {
+        if (!state.timerRunning) return;
+        state.elapsedSeconds = getElapsedSeconds();
+        state.timerRunning = false;
+        clearInterval(timerInterval);
+        timerInterval = null;
+        renderTimer(); saveData({ toast: false });
+      }
+
+      function resetTimer() {
+        pauseTimer();
+        state.elapsedSeconds = 0;
+        timerStartedAt = 0;
+        renderTimer(); saveData({ toast: false });
+      }
+
+      function renderTimer() {
+        const elapsed = getElapsedSeconds();
+        const target = getTargetSeconds();
+        elements.timerDisplay.textContent = `${formatClock(elapsed)} / ${formatClock(target)}`;
+        elements.timerDisplay.classList.toggle('overtime', target > 0 && elapsed >= target);
+        elements.timerToggle.textContent = state.timerRunning ? '暂停计时' : '开始计时';
+      }
+
+      function formatClock(seconds) {
+        const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+        const hours = Math.floor(safe / 3600);
+        const minutes = Math.floor((safe % 3600) / 60);
+        const secs = safe % 60;
+        return hours > 0
+          ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+          : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+
+      function formatDurationWords(seconds) {
+        const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+        const minutes = Math.floor(safe / 60);
+        const secs = safe % 60;
+        if (!minutes) return `${secs}秒`;
+        return secs ? `${minutes}分${secs}秒` : `${minutes}分钟`;
+      }
+
+      function changeFontSize(delta) {
+        state.fontSize = Math.max(FONT_MIN, Math.min(FONT_MAX, state.fontSize + delta));
+        applyPreferences(); scheduleSave();
+      }
+
+      function toggleTheme() {
+        state.darkMode = !state.darkMode;
+        applyPreferences(); scheduleSave();
+      }
+
+      async function toggleFullscreen() {
+        try {
+          if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+          else await document.exitFullscreen();
+        } catch (error) {
+          console.warn('当前浏览器未允许全屏。', error);
+        }
+      }
+
+      function exportJSON() {
+        const payload = { ...state, exportedAt: new Date().toISOString(), timerRunning: false };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        const date = new Date();
+        const localDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+        anchor.href = url;
+        anchor.download = `presenter_script_backup_${localDate}.json`;
+        document.body.appendChild(anchor);
+        anchor.click(); anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      function importJSON(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(reader.result);
+            if (!parsed || !Array.isArray(parsed.slides) || !parsed.slides.length) throw new Error('JSON 中没有有效的 slides。');
+            if (!window.confirm('导入会覆盖当前全部讲稿，确定继续吗？')) return;
+            pauseTimer();
+            state = normalizeData(parsed);
+            saveData(); renderAll();
+          } catch (error) {
+            window.alert(`导入失败：${error.message}`);
+          } finally {
+            elements.importInput.value = '';
+          }
+        };
+        reader.onerror = () => window.alert('无法读取所选文件。');
+        reader.readAsText(file, 'utf-8');
+      }
+
+      function clearAllData() {
+        if (!window.confirm('确定清除全部本地数据并恢复 Demo 吗？此操作无法撤销。')) return;
+        if (!window.confirm('再次确认：当前讲稿将被 Demo 数据替换。是否继续？')) return;
+        pauseTimer();
+        localStorage.removeItem(STORAGE_KEY);
+        state = createDemoData();
+        saveData(); renderAll();
+      }
+
+      function isTypingTarget(target) {
+        return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
+      }
+
+      function handleKeyboardShortcuts(event) {
+        if (state.mode !== 'presentation' || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+        const key = event.key;
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', '+', '=', '-'].includes(key)) event.preventDefault();
+        if (key === 'ArrowLeft') setCurrentSlide(state.currentSlide - 1);
+        if (key === 'ArrowRight' || key === ' ') setCurrentSlide(state.currentSlide + 1);
+        if (key === 'ArrowUp') setCurrentParagraph(getCurrentParagraphIndex() - 1);
+        if (key === 'ArrowDown') setCurrentParagraph(getCurrentParagraphIndex() + 1);
+        if (key.toLowerCase() === 'f') toggleFullscreen();
+        if (key === '+' || key === '=') changeFontSize(FONT_STEP);
+        if (key === '-') changeFontSize(-FONT_STEP);
+      }
+
+      function bindEvents() {
+        elements.prevSlideBtn.addEventListener('click', () => setCurrentSlide(state.currentSlide - 1));
+        elements.nextSlideBtn.addEventListener('click', () => setCurrentSlide(state.currentSlide + 1));
+        elements.presentModeBtn.addEventListener('click', () => toggleEditMode('presentation'));
+        elements.editModeBtn.addEventListener('click', () => toggleEditMode('edit'));
+        $('#addSlideBtn').addEventListener('click', addSlide);
+        $('#fontDown').addEventListener('click', () => changeFontSize(-FONT_STEP));
+        $('#fontUp').addEventListener('click', () => changeFontSize(FONT_STEP));
+        $('#themeToggle').addEventListener('click', toggleTheme);
+        $('#fullscreenBtn').addEventListener('click', toggleFullscreen);
+        elements.timerToggle.addEventListener('click', () => state.timerRunning ? pauseTimer() : startTimer());
+        $('#timerReset').addEventListener('click', resetTimer);
+        $('#exportBtn').addEventListener('click', exportJSON);
+        $('#importBtn').addEventListener('click', () => elements.importInput.click());
+        elements.importInput.addEventListener('change', event => importJSON(event.target.files[0]));
+        $('#clearBtn').addEventListener('click', clearAllData);
+        $('#slidesToggle').addEventListener('click', () => document.body.classList.toggle('slides-collapsed'));
+        $('#notesToggle').addEventListener('click', () => {
+          if (window.matchMedia('(max-width: 930px)').matches) {
+            document.body.classList.remove('notes-collapsed');
+            document.body.classList.toggle('notes-user-open');
+          } else {
+            document.body.classList.toggle('notes-collapsed');
+          }
+        });
+        [elements.editTitle, elements.editSubtitle, elements.editScript, elements.editKeyPoints,
+          elements.editExtraNotes, elements.editEstimatedTime, elements.editTargetTime]
+          .forEach(input => input.addEventListener('input', updateCurrentSlideFromEditor));
+        document.addEventListener('keydown', handleKeyboardShortcuts);
+        document.addEventListener('fullscreenchange', () => {
+          $('#fullscreenBtn').textContent = document.fullscreenElement ? '退出全屏' : '全屏';
+        });
+        window.addEventListener('beforeunload', () => {
+          if (state.timerRunning) {
+            state.elapsedSeconds = getElapsedSeconds();
+            state.timerRunning = false;
+          }
+          saveData({ toast: false });
+        });
+      }
+
+      bindEvents();
+      renderAll();
+      saveData({ toast: false });
+
+      window.__presenterScriptTest = {
+        getState: () => JSON.parse(JSON.stringify(state)),
+        setCurrentSlide,
+        setCurrentParagraph,
+        toggleEditMode,
+        changeFontSize,
+        toggleTheme,
+        startTimer,
+        pauseTimer,
+        resetTimer
+      };
+    })();
+  </script>
+</body>
+</html>
