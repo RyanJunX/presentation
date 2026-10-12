@@ -1046,6 +1046,8 @@
         const slide = getCurrentSlide();
         state.paragraphIndices[slide.id] = 0;
         renderSlides(); renderCurrentSlide(); renderNotes(); renderFooter();
+        // Start every newly selected slide at the top, overriding smooth scrolling.
+        elements.scriptReader.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         scheduleSave();
       }
 
