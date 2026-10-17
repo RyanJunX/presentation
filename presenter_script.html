@@ -431,8 +431,8 @@
       .reader-style-switch button { flex: 1; min-height: 40px; font-size: 14px; }
       .mobile-focus-action { display: block; grid-column: 2; grid-row: 1; min-height: 44px; padding: 7px 9px; border: 0; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 750; cursor: pointer; white-space: nowrap; }
       .script-reader { padding: 12px 12px 28px; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
-      .paragraph { font-size: min(var(--script-size), 32px); padding: 14px; }
-      body.points-mode .paragraph { font-size: min(calc(var(--script-size) * .8), 30px); padding: 12px 12px 12px 45px; }
+      .paragraph { font-size: var(--script-size); padding: 14px; }
+      body.points-mode .paragraph { font-size: calc(var(--script-size) * .8); padding: 12px 12px 12px 45px; }
       .footer { grid-template-columns: minmax(0, 1fr) 66px minmax(0, 1fr); gap: 8px; padding: 10px max(14px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
       .footer .dots { display: none; }
       .footer .nav-btn { width: 100%; min-width: 0; min-height: 56px; padding: 8px 6px; font-size: 16px; border-radius: 13px; }
