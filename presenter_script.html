@@ -2,7 +2,13 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="文稿提示器">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <meta name="description" content="演讲阅读优先的本地 Presenter Script 提词器">
   <title>演讲者提词器 / Presenter Script</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Crect x='14' y='13' width='36' height='38' rx='5' fill='white'/%3E%3Cpath d='M21 24h22M21 32h17M21 40h20' stroke='%232563eb' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
@@ -350,11 +356,112 @@
       body.slides-mobile-open .slides-panel { display: flex; }
       body.notes-user-open .notes-panel { display: flex; }
     }
+    /* Mobile reader UI: no script data or account storage is migrated. */
+    .mobile-topbar, .focus-bar, .mobile-focus-action, .mobile-directory { display: none; }
+    .reader-notice { position: fixed; left: 50%; bottom: calc(var(--footer-height) + 16px); transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); z-index: 60; font-size: 14px; line-height: 1.5; pointer-events: none; }
+    .reader-sheet { width: min(540px, calc(100vw - 24px)); max-height: 82dvh; padding: 0; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); overflow: hidden; }
+    .reader-sheet[open] { display: flex; flex-direction: column; }
+    .reader-sheet::backdrop { background: rgba(12, 20, 35, .42); }
+    .sheet-handle { flex-shrink: 0; width: 44px; height: 5px; margin: 10px auto 2px; border-radius: 4px; background: var(--border); }
+    .sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 20px 12px; flex-shrink: 0; }
+    .sheet-heading h2 { margin: 0; font-size: 21px; }
+    .sheet-close { width: 44px; min-height: 44px; border: 0; border-radius: 50%; background: var(--surface-3); font-size: 23px; cursor: pointer; }
+    .sheet-tabs { display: flex; gap: 3px; margin: 0 20px 10px; padding: 4px; border-radius: 12px; background: var(--surface-3); flex-shrink: 0; }
+    .sheet-tabs[hidden] { display: none; }
+    .sheet-tabs button { flex: 1; min-height: 42px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 15px; font-weight: 700; cursor: pointer; }
+    .sheet-tabs button.active { background: var(--accent); color: #fff; }
+    .sheet-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; -webkit-overflow-scrolling: touch; }
+    .reader-sheet .panel { position: static !important; width: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; opacity: 1 !important; pointer-events: auto !important; overflow: visible; }
+    .reader-sheet .panel-heading { display: none; }
+    .reader-sheet .slides-list, .reader-sheet .notes-scroll { padding: 0; overflow: visible; }
+    .reader-sheet .slide-item { padding: 14px 10px; min-height: 64px; }
+    .reader-sheet .slide-title { font-size: 16px; }
+    .reader-sheet .note-card { border: 0; background: transparent; padding: 10px 0; margin: 0; }
+    .reader-sheet #notesKeyCard h3, .reader-sheet #notesExtraCard h3, .reader-sheet .estimated, .reader-sheet #notesStatsCard, .reader-sheet #notesKeyboardCard { display: none; }
+    .reader-sheet[data-notes-tab="key"] #notesExtraCard, .reader-sheet[data-notes-tab="extra"] #notesKeyCard { display: none; }
+    .reader-sheet .note-list { font-size: 17px; line-height: 1.8; padding-left: 26px; }
+    .reader-sheet .note-list li + li { margin-top: 14px; }
+    .reader-sheet #keyPointsList { list-style: none; padding: 0; counter-reset: note-index; }
+    .reader-sheet #keyPointsList li { position: relative; padding-left: 44px; min-height: 32px; counter-increment: note-index; }
+    .reader-sheet #keyPointsList li::before { content: counter(note-index); position: absolute; left: 0; top: 0; width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 750; }
+    .sheet-estimate { margin: 0 20px 18px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); font-size: 14px; flex-shrink: 0; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mobile-menu-grid .btn { min-height: 48px; }
+    .mobile-menu-grid .menu-wide { grid-column: 1 / -1; }
+    .mobile-font-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; grid-column: 1 / -1; padding: 10px 0; border-top: 1px solid var(--border); }
+    .mobile-font-control .btn { min-width: 52px; }
+    .mobile-menu-note, .install-help { font-size: 14px; line-height: 1.8; color: var(--muted); overflow-wrap: anywhere; }
+    .install-help ol { padding-left: 24px; }
+    .install-help li + li { margin-top: 12px; }
+    .install-help a { color: var(--accent); }
+    body.focus-mode { --header-height: 60px; }
+    body.focus-mode .topbar { display: block; padding: 8px 20px; }
+    body.focus-mode .topbar > :not(.focus-bar) { display: none !important; }
+    .focus-bar { align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-variant-numeric: tabular-nums; }
+    body.focus-mode .focus-bar { display: flex; }
+    .focus-bar .btn { min-height: 44px; }
+    body.focus-mode .workspace { display: block; width: 100%; max-width: 1180px; margin: 0 auto; }
+    body.focus-mode .workspace > .slides-panel, body.focus-mode .workspace > .notes-panel { display: none; }
+    body.focus-mode .script-panel { height: 100%; }
+    body.focus-mode .script-heading-row, body.focus-mode .script-header .subtitle, body.focus-mode .reader-style-hint { display: none; }
+    body.focus-mode .script-header { padding-top: 14px; padding-bottom: 14px; }
+    @media (max-width: 720px), (max-width: 1000px) and (pointer: coarse) and (hover: none) {
+      :root { --header-height: calc(60px + env(safe-area-inset-top, 0px)); --footer-height: calc(76px + env(safe-area-inset-bottom, 0px)); }
+      .app-shell { height: var(--reader-app-height, 100dvh); }
+      .topbar { display: block; padding: calc(8px + env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) 8px max(14px, env(safe-area-inset-left, 0px)); }
+      .topbar > :not(.mobile-topbar):not(.focus-bar) { display: none; }
+      .mobile-topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; font-variant-numeric: tabular-nums; }
+      .mobile-page { font-size: 16px; font-weight: 800; white-space: nowrap; }
+      .mobile-timer { color: var(--muted); font-size: 14px; white-space: nowrap; }
+      .mobile-timer.overtime { color: var(--warning); }
+      .mobile-sync { display: flex; align-items: center; gap: 5px; min-height: 44px; max-width: 100px; padding: 4px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; white-space: nowrap; }
+      .mobile-sync::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+      .mobile-sync[data-tone="success"]::before { background: var(--success); }
+      .mobile-sync[data-tone="warning"]::before { background: var(--warning); }
+      .mobile-more { width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 12px; background: var(--surface-2); font-size: 23px; cursor: pointer; }
+      .workspace, body:not(.notes-user-open) .workspace, body.notes-user-open .workspace,
+      body.slides-collapsed .workspace, body.notes-collapsed .workspace, body.slides-collapsed.notes-collapsed .workspace { grid-template-columns: minmax(0, 1fr); padding: 6px max(6px, env(safe-area-inset-right, 0px)) 6px max(6px, env(safe-area-inset-left, 0px)); gap: 0; }
+      .workspace > .slides-panel, .workspace > .notes-panel { display: none !important; }
+      .script-panel { grid-column: 1; border-radius: 16px; }
+      .script-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 16px 12px; }
+      .script-header h2 { grid-column: 1; grid-row: 1; font-size: 24px; line-height: 1.25; overflow-wrap: anywhere; }
+      .script-heading-row { grid-row: 2; grid-column: 1 / -1; margin: 0; }
+      .script-heading-row .eyebrow, .script-header .subtitle, .reader-style-hint { display: none; }
+      .reader-style-switch { width: 100%; }
+      .reader-style-switch button { flex: 1; min-height: 40px; font-size: 14px; }
+      .mobile-focus-action { display: block; grid-column: 2; grid-row: 1; min-height: 44px; padding: 7px 9px; border: 0; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 750; cursor: pointer; white-space: nowrap; }
+      .script-reader { padding: 12px 12px 28px; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+      .paragraph { font-size: min(var(--script-size), 32px); padding: 14px; }
+      body.points-mode .paragraph { font-size: min(calc(var(--script-size) * .8), 30px); padding: 12px 12px 12px 45px; }
+      .footer { grid-template-columns: minmax(0, 1fr) 66px minmax(0, 1fr); gap: 8px; padding: 10px max(14px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+      .footer .dots { display: none; }
+      .footer .nav-btn { width: 100%; min-width: 0; min-height: 56px; padding: 8px 6px; font-size: 16px; border-radius: 13px; }
+      .mobile-directory { display: block; min-height: 56px; border: 0; border-radius: 12px; background: var(--surface-2); font-size: 14px; font-weight: 700; cursor: pointer; }
+      .reader-sheet { width: 100%; max-width: none; max-height: min(calc(84dvh - env(safe-area-inset-top, 0px)), calc(var(--reader-app-height, 100dvh) - 24px)); margin: auto 0 0; border-radius: 24px 24px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+      .reader-sheet .panel { display: flex !important; }
+      body.editing .script-heading-row, body.editing .mobile-focus-action { display: none; }
+      body.focus-mode { --header-height: calc(60px + env(safe-area-inset-top, 0px)); }
+      body.focus-mode .topbar { padding: calc(8px + env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) 8px max(14px, env(safe-area-inset-left, 0px)); }
+      body.focus-mode .script-header { display: block; padding: 12px 16px; }
+      body.focus-mode .mobile-focus-action { display: none; }
+      .cloud-dialog { max-height: calc(var(--reader-app-height, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px); }
+    }
   </style>
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
+      <div class="mobile-topbar" aria-label="手机阅读工具栏">
+        <span class="mobile-page" id="mobilePage">01 / 10</span>
+        <span class="mobile-timer" id="mobileTimer" aria-label="已用时间">00:00</span>
+        <button type="button" class="mobile-sync" id="mobileSyncStatus" data-tone="local" title="云同步状态">本地</button>
+        <button type="button" class="mobile-more" id="mobileMoreBtn" aria-label="更多设置" aria-haspopup="dialog" aria-controls="readerSheet">⋯</button>
+      </div>
+      <div class="focus-bar" aria-label="专注阅读工具栏">
+        <span class="mobile-page" id="focusPage">01 / 10</span>
+        <span class="mobile-timer" id="focusTimer" aria-label="已用时间">00:00</span>
+        <button type="button" class="btn" id="focusExitBtn">退出专注</button>
+      </div>
       <div>
         <div class="brand-row">
           <div class="brand-mark" aria-hidden="true">PS</div>
@@ -396,7 +503,7 @@
     </header>
 
     <main class="workspace">
-      <aside class="panel slides-panel" aria-label="Slides 列表">
+      <aside class="panel slides-panel" id="slidesPanel" aria-label="Slides 列表">
         <div class="panel-heading">
           <h2>SLIDES</h2>
           <span class="meta" id="slideCount">10 页</span>
@@ -417,6 +524,7 @@
             </div>
           </div>
           <h2 id="currentTitle">Introduction</h2>
+          <button type="button" class="mobile-focus-action presentation-only" id="mobileFocusBtn" aria-pressed="false">⛶ 专注阅读</button>
           <p class="subtitle" id="currentSubtitle">研究背景</p>
           <p class="reader-style-hint presentation-only" id="readerStyleHint" hidden>每段一个要点 · 保留全部文字，不自动概括 · ↑↓ 切换要点</p>
         </div>
@@ -464,24 +572,24 @@
         </div>
       </section>
 
-      <aside class="panel notes-panel" aria-label="演讲提示">
+      <aside class="panel notes-panel" id="notesPanel" aria-label="演讲提示">
         <div class="panel-heading">
           <h2>演讲提示 / NOTES</h2>
           <span class="meta" id="saveStatusInline">已保存</span>
         </div>
         <div class="notes-scroll">
-          <section class="note-card">
+          <section class="note-card" id="notesKeyCard">
             <h3>本页要点</h3>
             <div class="estimated"><span>本页预计</span><strong id="estimatedTime">0秒</strong></div>
             <ol class="note-list" id="keyPointsList"></ol>
             <p class="note-empty hidden" id="keyPointsEmpty">尚未添加要点。</p>
           </section>
-          <section class="note-card">
+          <section class="note-card" id="notesExtraCard">
             <h3>补充说明</h3>
             <ul class="note-list" id="extraNotesList"></ul>
             <p class="note-empty hidden" id="extraNotesEmpty">尚未添加补充说明。</p>
           </section>
-          <section class="note-card">
+          <section class="note-card" id="notesStatsCard">
             <h3>进度与统计</h3>
             <div class="stats-grid">
               <div class="stat"><span>字数</span><strong id="wordCount">0</strong></div>
@@ -489,7 +597,7 @@
             </div>
             <div class="paragraph-progress" aria-label="当前段落进度"><div class="progress-fill" id="paragraphProgress"></div></div>
           </section>
-          <section class="note-card presentation-only">
+          <section class="note-card presentation-only" id="notesKeyboardCard">
             <h3>快捷键</h3>
             <div class="keyboard-list">
               <kbd>← →</kbd><span>切换幻灯片</span>
@@ -506,11 +614,47 @@
     <footer class="footer">
       <button class="btn nav-btn prev" id="prevSlideBtn" type="button">◀ 上一页</button>
       <div class="dots" id="progressDots" aria-label="Slide 快速导航"></div>
+      <button class="mobile-directory" type="button" id="mobileDirectoryBtn" aria-haspopup="dialog" aria-controls="readerSheet">☷ 目录</button>
       <button class="btn primary nav-btn next" id="nextSlideBtn" type="button">下一页 ▶</button>
     </footer>
   </div>
 
   <div class="save-status" id="saveToast" role="status" aria-live="polite"><span class="save-dot"></span><span>已自动保存</span></div>
+
+  <div id="readerNotice" class="reader-notice" role="status" aria-live="polite" hidden></div>
+  <dialog id="readerSheet" class="reader-sheet" aria-labelledby="sheetTitle" data-notes-tab="key">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-heading"><h2 id="sheetTitle">更多设置</h2><button type="button" class="btn small" id="sheetSwitchBtn" hidden>本页提示</button><button type="button" class="sheet-close" id="sheetClose" aria-label="关闭面板">×</button></div>
+    <div class="sheet-tabs" id="sheetTabs" role="group" aria-label="提示分类" hidden>
+      <button type="button" id="notesKeyTab" class="active" aria-pressed="true">本页要点</button>
+      <button type="button" id="notesExtraTab" aria-pressed="false">补充说明</button>
+    </div>
+    <div class="sheet-content" id="sheetContent">
+      <div id="mobileMenu" hidden>
+        <div class="mobile-menu-grid">
+          <button class="btn" type="button" id="menuNotes">本页提示 / Notes</button>
+          <button class="btn" type="button" id="menuDirectory">讲稿目录</button>
+          <button class="btn" type="button" id="menuTimer">开始计时</button>
+          <button class="btn" type="button" id="menuTimerReset">重置计时</button>
+          <button class="btn" type="button" id="menuTheme">切换深色</button>
+          <button class="btn" type="button" id="menuEdit">编辑讲稿</button>
+          <div class="mobile-font-control"><span>字体 <strong id="mobileFontValue">32</strong></span><button class="btn" type="button" id="menuFontDown" aria-label="减小正文字体">A−</button><button class="btn" type="button" id="menuFontUp" aria-label="增大正文字体">A+</button></div>
+          <button class="btn menu-wide" type="button" id="menuCloud">登录 / 云同步</button>
+          <button class="btn" type="button" id="menuExport">导出 JSON 备份</button>
+          <button class="btn" type="button" id="menuInstall">添加到主屏幕</button>
+          <button class="btn menu-wide" type="button" id="menuFullscreen" hidden>浏览器全屏</button>
+        </div>
+        <p class="mobile-menu-note">显示切换不会改写讲稿。专注阅读只隐藏网页工具；在 Safari 中不强制隐藏地址栏。</p>
+      </div>
+      <div class="install-help" id="installHelp" hidden>
+        <p>iPhone：从主屏幕打开，可像 App 一样独立阅读。</p>
+        <ol><li>先确认讲稿顶部显示“已同步”。</li><li>在 Safari 中轻点“共享”按钮。</li><li>选择“添加到主屏幕”；若有“作为网页 App 打开”，将其开启。</li><li>点击主屏幕图标打开；若需要登录，使用原账号读取云端讲稿。</li></ol>
+        <p>本地文件请先使用<a href="https://ryanjunx.github.io/presentation/presenter_script.html" target="_blank" rel="noopener">在线网址</a>。独立窗口可能需要重新登录，只有本地的稿件请先导出备份。本轮没有添加离线缓存，也不会自动将示例覆盖到云端。</p>
+        <p id="standaloneStatus"></p>
+      </div>
+    </div>
+    <div class="sheet-estimate" id="sheetEstimate" hidden>◷ 预计用时 <span id="sheetEstimatedTime"></span></div>
+  </dialog>
 
   <dialog id="cloudDialog" class="cloud-dialog" aria-labelledby="cloudDialogTitle">
     <button class="btn small cloud-close" type="button" id="cloudClose" aria-label="关闭云同步设置">关闭</button>
@@ -674,6 +818,7 @@
 
       const STORAGE_KEY = 'presenterScriptDataV1';
       const READER_STYLE_KEY = 'presenterReaderStyleV1';
+      const MOBILE_QUERY = '(max-width: 720px), (max-width: 1000px) and (pointer: coarse) and (hover: none)';
       const SUPABASE_URL = 'https://hiuzycvkssbnznilctxd.supabase.co';
       const SUPABASE_KEY = 'sb_publishable_ZTvcITVA_K4WnDhgChWZlg_8QUh6qTW';
       const APP_URL = 'https://ryanjunx.github.io/presentation/presenter_script.html';
@@ -852,6 +997,167 @@
       let state = loadData();
       // Display preference is device-local, outside script snapshots and cloud payloads.
       let readerStyle = loadReaderStyle();
+      let mountedReaderPanel = null, readerPanelAnchor = null, sheetReturnFocus = null, noticeTimer = null;
+
+      function isMobileLayout() { return window.matchMedia(MOBILE_QUERY).matches; }
+
+      function updateMobileViewport() {
+        const viewport = window.visualViewport;
+        if (isMobileLayout() && viewport && viewport.scale === 1 && isTypingTarget(document.activeElement)) {
+          document.documentElement.style.setProperty('--reader-app-height', `${viewport.height}px`);
+        } else document.documentElement.style.removeProperty('--reader-app-height');
+      }
+
+      function announceReader(message) {
+        const notice = $('#readerNotice');
+        notice.textContent = message; notice.hidden = false;
+        clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => { notice.hidden = true; }, 5000);
+      }
+
+      function restoreReaderPanel() {
+        if (mountedReaderPanel && readerPanelAnchor?.parentNode) readerPanelAnchor.replaceWith(mountedReaderPanel);
+        mountedReaderPanel = null; readerPanelAnchor = null;
+      }
+
+      function closeReaderSheet() {
+        restoreReaderPanel();
+        if ($('#readerSheet').open) $('#readerSheet').close();
+      }
+
+      function openReaderSheet(panel) {
+        if (!isMobileLayout()) return;
+        const sheet = $('#readerSheet');
+        if (!sheet.open) sheetReturnFocus = document.activeElement;
+        restoreReaderPanel();
+        sheet.dataset.panel = panel;
+        const titles = { menu: '更多设置', slides: '讲稿目录', notes: '本页提示', install: '添加到主屏幕' };
+        $('#sheetTitle').textContent = titles[panel] || titles.menu;
+        $('#mobileMenu').hidden = panel !== 'menu';
+        $('#installHelp').hidden = panel !== 'install';
+        $('#sheetTabs').hidden = panel !== 'notes';
+        $('#sheetEstimate').hidden = panel !== 'notes';
+        $('#sheetSwitchBtn').hidden = !['slides', 'notes'].includes(panel);
+        $('#sheetSwitchBtn').textContent = panel === 'notes' ? '目录' : '本页提示';
+        const target = panel === 'slides' ? $('#slidesPanel') : panel === 'notes' ? $('#notesPanel') : null;
+        if (target) {
+          // Move the existing rendered panel, not a copy of the user's document.
+          readerPanelAnchor = document.createComment('reader-panel-home');
+          target.before(readerPanelAnchor);
+          mountedReaderPanel = target; $('#sheetContent').appendChild(target);
+        }
+        updateMobileUI();
+        if (!sheet.open) sheet.showModal();
+        $('#sheetContent').scrollTop = 0;
+        $('#sheetClose').focus({ preventScroll: true });
+      }
+
+      function setNotesTab(tab) {
+        const extra = tab === 'extra';
+        $('#readerSheet').dataset.notesTab = extra ? 'extra' : 'key';
+        $('#notesKeyTab').classList.toggle('active', !extra);
+        $('#notesExtraTab').classList.toggle('active', extra);
+        $('#notesKeyTab').setAttribute('aria-pressed', String(!extra));
+        $('#notesExtraTab').setAttribute('aria-pressed', String(extra));
+      }
+
+      function syncMobileCloudStatus() {
+        const source = $('#cloudStatus'), message = source.textContent;
+        const target = $('#mobileSyncStatus');
+        let label = '本地', tone = 'local';
+        if (/冲突/.test(message)) { label = '版本冲突'; tone = 'warning'; }
+        else if (source.classList.contains('error')) { label = '未同步'; tone = 'warning'; }
+        else if (/离线/.test(message)) { label = '离线'; tone = 'warning'; }
+        else if (/正在|等待/.test(message)) label = '同步中';
+        else if (/云端已同步|已获取其他设备|云端已保存/.test(message)) { label = '已同步'; tone = 'success'; }
+        else if (/云端尚无|云端还没有/.test(message)) { label = '待上传'; tone = 'warning'; }
+        target.textContent = label; target.dataset.tone = tone;
+        target.title = message; target.setAttribute('aria-label', `云同步：${message}`);
+      }
+
+      function updateMobileTimer() {
+        const elapsed = getElapsedSeconds(), target = getTargetSeconds();
+        for (const id of ['mobileTimer', 'focusTimer']) {
+          $(`#${id}`).textContent = formatClock(elapsed);
+          $(`#${id}`).classList.toggle('overtime', target > 0 && elapsed >= target);
+        }
+        $('#menuTimer').textContent = state.timerRunning ? '暂停计时' : '开始计时';
+      }
+
+      function updateMobileUI() {
+        const page = `${String(state.currentSlide + 1).padStart(2, '0')} / ${state.slides.length}`;
+        $('#mobilePage').textContent = page; $('#focusPage').textContent = page;
+        $('#mobileFontValue').textContent = state.fontSize;
+        $('#menuTheme').textContent = state.darkMode ? '切换浅色' : '切换深色';
+        $('#menuEdit').textContent = state.mode === 'edit' ? '返回演讲' : '编辑讲稿';
+        $('#menuCloud').textContent = $('#cloudOpen').textContent;
+        $('#sheetEstimatedTime').textContent = formatDurationWords(getCurrentSlide().estimatedTime);
+        $('#menuFullscreen').hidden = document.fullscreenEnabled !== true || typeof document.documentElement.requestFullscreen !== 'function';
+        $('#mobileFocusBtn').setAttribute('aria-pressed', String(document.body.classList.contains('focus-mode')));
+        updateMobileTimer(); syncMobileCloudStatus();
+      }
+
+      function setFocusMode(enabled) {
+        if (enabled && state.mode !== 'presentation') {
+          announceReader('请先返回演讲模式，再进入专注阅读。'); return false;
+        }
+        closeReaderSheet();
+        document.body.classList.toggle('focus-mode', enabled);
+        $('#fullscreenBtn').textContent = enabled ? '退出专注' : document.fullscreenElement ? '退出全屏' : '全屏';
+        updateMobileUI();
+        (enabled ? $('#focusExitBtn') : isMobileLayout() ? $('#mobileFocusBtn') : $('#fullscreenBtn')).focus({ preventScroll: true });
+        elements.scriptReader.querySelector('.paragraph.current')?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+        return true;
+      }
+
+      function bindMobileEvents() {
+        $('#mobileMoreBtn').addEventListener('click', () => openReaderSheet('menu'));
+        $('#mobileDirectoryBtn').addEventListener('click', () => openReaderSheet('slides'));
+        $('#mobileSyncStatus').addEventListener('click', () => $('#cloudOpen').click());
+        $('#mobileFocusBtn').addEventListener('click', () => setFocusMode(true));
+        $('#focusExitBtn').addEventListener('click', () => setFocusMode(false));
+        $('#sheetClose').addEventListener('click', closeReaderSheet);
+        $('#readerSheet').addEventListener('close', () => {
+          restoreReaderPanel();
+          if (sheetReturnFocus?.isConnected) sheetReturnFocus.focus({ preventScroll: true });
+        });
+        $('#readerSheet').addEventListener('click', event => {
+          if (event.target !== $('#readerSheet')) return;
+          const rect = event.target.getBoundingClientRect();
+          if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeReaderSheet();
+        });
+        $('#sheetSwitchBtn').addEventListener('click', () => openReaderSheet($('#readerSheet').dataset.panel === 'notes' ? 'slides' : 'notes'));
+        $('#notesKeyTab').addEventListener('click', () => setNotesTab('key'));
+        $('#notesExtraTab').addEventListener('click', () => setNotesTab('extra'));
+        $('#menuNotes').addEventListener('click', () => { setNotesTab('key'); openReaderSheet('notes'); });
+        $('#menuDirectory').addEventListener('click', () => openReaderSheet('slides'));
+        $('#menuFontDown').addEventListener('click', () => changeFontSize(-FONT_STEP));
+        $('#menuFontUp').addEventListener('click', () => changeFontSize(FONT_STEP));
+        $('#menuTheme').addEventListener('click', toggleTheme);
+        $('#menuTimer').addEventListener('click', () => elements.timerToggle.click());
+        $('#menuTimerReset').addEventListener('click', () => $('#timerReset').click());
+        $('#menuEdit').addEventListener('click', () => { closeReaderSheet(); toggleEditMode(state.mode === 'edit' ? 'presentation' : 'edit'); });
+        $('#menuCloud').addEventListener('click', () => { closeReaderSheet(); $('#cloudOpen').click(); });
+        $('#menuExport').addEventListener('click', exportJSON);
+        $('#menuInstall').addEventListener('click', () => {
+          $('#standaloneStatus').textContent = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true ? '当前已在独立网页 App 窗口中打开。' : '普通 Safari 窗口的地址栏由浏览器控制；专注模式不会强制隐藏它。';
+          openReaderSheet('install');
+        });
+        $('#menuFullscreen').addEventListener('click', () => { closeReaderSheet(); requestPageFullscreen(); });
+        const closeAfterSlide = event => {
+          if (!$('#readerSheet').open || $('#readerSheet').dataset.panel !== 'slides') return;
+          if (event.target.closest('.slide-item') && !event.target.closest('[data-action]') && (event.type === 'click' || ['Enter', ' '].includes(event.key))) closeReaderSheet();
+        };
+        elements.slidesList.addEventListener('click', closeAfterSlide);
+        elements.slidesList.addEventListener('keydown', closeAfterSlide);
+        window.matchMedia(MOBILE_QUERY).addEventListener?.('change', () => {
+          closeReaderSheet(); document.body.classList.remove('slides-mobile-open', 'notes-user-open'); updateMobileUI(); updateMobileViewport();
+        });
+        window.visualViewport?.addEventListener('resize', updateMobileViewport);
+        document.addEventListener('focusin', updateMobileViewport);
+        document.addEventListener('focusout', () => requestAnimationFrame(updateMobileViewport));
+        new MutationObserver(syncMobileCloudStatus).observe($('#cloudStatus'), { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'title'] });
+      }
 
       function loadReaderStyle() {
         try { return localStorage.getItem(READER_STYLE_KEY) === 'points' ? 'points' : 'full'; }
@@ -946,6 +1252,7 @@
         document.documentElement.style.setProperty('--script-size', `${state.fontSize}px`);
         elements.themeLabel.textContent = state.darkMode ? '浅色' : '深色';
         applyReaderStyle();
+        updateMobileUI();
       }
 
       function renderSlides() {
@@ -1082,6 +1389,7 @@
           elements.progressDots.appendChild(dot);
           previous = index;
         });
+        updateMobileUI();
       }
 
       function getVisibleDotIndices(total, current) {
@@ -1094,12 +1402,15 @@
 
       function renderMode() {
         const editing = state.mode === 'edit';
+        if (editing && document.body.classList.contains('focus-mode')) setFocusMode(false);
+        document.body.classList.toggle('editing', editing);
         elements.presentModeBtn.classList.toggle('active', !editing);
         elements.editModeBtn.classList.toggle('active', editing);
         elements.scriptReader.classList.toggle('hidden', editing);
         elements.editorPanel.classList.toggle('hidden', !editing);
         $$('.edit-only').forEach(el => el.classList.toggle('hidden', !editing));
         $$('.presentation-only').forEach(el => el.classList.toggle('hidden', editing));
+        updateMobileUI();
       }
 
       function setCurrentSlide(index) {
@@ -1226,6 +1537,7 @@
         elements.timerDisplay.textContent = `${formatClock(elapsed)} / ${formatClock(target)}`;
         elements.timerDisplay.classList.toggle('overtime', target > 0 && elapsed >= target);
         elements.timerToggle.textContent = state.timerRunning ? '暂停计时' : '开始计时';
+        updateMobileTimer();
       }
 
       function formatClock(seconds) {
@@ -1257,11 +1569,21 @@
       }
 
       async function toggleFullscreen() {
+        if (document.body.classList.contains('focus-mode')) { setFocusMode(false); return; }
+        if (isMobileLayout()) { setFocusMode(true); return; }
+        await requestPageFullscreen();
+      }
+
+      async function requestPageFullscreen() {
+        if (typeof document.documentElement.requestFullscreen !== 'function' || document.fullscreenEnabled === false) {
+          if (setFocusMode(true)) announceReader('浏览器不支持网页全屏，已进入专注阅读。');
+          return;
+        }
         try {
           if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
           else await document.exitFullscreen();
         } catch (error) {
-          console.warn('当前浏览器未允许全屏。', error);
+          if (setFocusMode(true)) announceReader('浏览器未允许全屏，已进入专注阅读；可随时退出。');
         }
       }
 
@@ -1495,8 +1817,9 @@
       }
 
       function handleKeyboardShortcuts(event) {
-        if ($('#cloudDialog').open || state.mode !== 'presentation' || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+        if (event.defaultPrevented || $('#cloudDialog').open || $('#readerSheet').open || state.mode !== 'presentation' || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
         const key = event.key;
+        if (key === 'Escape' && document.body.classList.contains('focus-mode')) { event.preventDefault(); setFocusMode(false); return; }
         if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', '+', '=', '-'].includes(key)) event.preventDefault();
         if (key === 'ArrowLeft') setCurrentSlide(state.currentSlide - 1);
         if (key === 'ArrowRight' || key === ' ') setCurrentSlide(state.currentSlide + 1);
@@ -1526,13 +1849,12 @@
         elements.importInput.addEventListener('change', event => importJSON(event.target.files[0]));
         $('#clearBtn').addEventListener('click', clearAllData);
         $('#slidesToggle').addEventListener('click', () => {
-          if (window.matchMedia('(max-width: 720px)').matches) {
-            document.body.classList.remove('notes-user-open');
-            document.body.classList.toggle('slides-mobile-open');
-          } else document.body.classList.toggle('slides-collapsed');
+          if (isMobileLayout()) openReaderSheet('slides');
+          else document.body.classList.toggle('slides-collapsed');
         });
         $('#notesToggle').addEventListener('click', () => {
-          if (window.matchMedia('(max-width: 930px)').matches) {
+          if (isMobileLayout()) { setNotesTab('key'); openReaderSheet('notes'); }
+          else if (window.matchMedia('(max-width: 930px)').matches) {
             document.body.classList.remove('slides-mobile-open');
             document.body.classList.remove('notes-collapsed');
             document.body.classList.toggle('notes-user-open');
@@ -1545,7 +1867,7 @@
           .forEach(input => input.addEventListener('input', updateCurrentSlideFromEditor));
         document.addEventListener('keydown', handleKeyboardShortcuts);
         document.addEventListener('fullscreenchange', () => {
-          $('#fullscreenBtn').textContent = document.fullscreenElement ? '退出全屏' : '全屏';
+          $('#fullscreenBtn').textContent = document.body.classList.contains('focus-mode') ? '退出专注' : document.fullscreenElement ? '退出全屏' : '全屏';
         });
         window.addEventListener('beforeunload', () => {
           if (state.timerRunning) {
@@ -1558,6 +1880,7 @@
 
       bindEvents();
       bindCloudEvents();
+      bindMobileEvents();
       renderAll();
       saveData({ toast: false });
       initializeCloud();
