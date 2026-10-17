@@ -200,6 +200,12 @@
     .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .13em; }
     .script-header h2 { margin: 0; font-size: clamp(26px, 2.4vw, 38px); line-height: 1.15; letter-spacing: -.035em; }
     .script-header .subtitle { margin: 7px 0 0; color: var(--muted); font-size: 16px; }
+    .script-heading-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 8px; }
+    .script-heading-row .eyebrow { margin: 0; }
+    .reader-style-switch { display: flex; flex-shrink: 0; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-3); }
+    .reader-style-switch button { min-height: 30px; padding: 5px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; }
+    .reader-style-switch button.active { background: var(--surface); color: var(--accent); box-shadow: 0 2px 6px rgba(30, 50, 80, .08); }
+    .reader-style-hint { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .script-reader { flex: 1; overflow-y: auto; padding: 24px 30px 48px; scroll-behavior: smooth; scrollbar-width: thin; }
     .paragraph {
       position: relative; margin: 0 0 16px; padding: 18px 20px; border: 1px solid transparent; border-radius: 13px;
@@ -212,6 +218,22 @@
       box-shadow: inset 5px 0 0 var(--accent), 0 5px 18px color-mix(in srgb, var(--accent) 9%, transparent);
     }
     .paragraph:not(.current) { opacity: .72; }
+    body.points-mode .script-reader { counter-reset: talking-point; }
+    body.points-mode .paragraph {
+      counter-increment: talking-point; margin-bottom: 10px; padding: 12px 14px 12px 49px;
+      border-color: var(--border); background: var(--surface-2); color: var(--text);
+      font-size: calc(var(--script-size) * .8); line-height: 1.5; white-space: pre-line;
+    }
+    body.points-mode .paragraph::before {
+      content: counter(talking-point, decimal-leading-zero); position: absolute; left: 12px; top: 14px;
+      display: grid; place-items: center; width: 25px; height: 25px; border-radius: 7px;
+      background: var(--surface-3); color: var(--muted); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+    }
+    body.points-mode .paragraph::first-line { font-weight: 750; }
+    body.points-mode .paragraph:not(.current) { opacity: .88; }
+    body.points-mode .paragraph.current { background: var(--accent-soft); border-color: var(--accent-line); }
+    body.points-mode .paragraph.current::before { background: var(--accent); color: var(--surface); }
+    body.points-mode .cue-tag { font-size: .68em; white-space: normal; }
     .cue-tag { display: inline-flex; align-items: center; vertical-align: .12em; margin: 0 .12em; padding: .16em .52em; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); font-size: .56em; line-height: 1.55; font-weight: 800; white-space: nowrap; }
     .cue-tag.emphasis { background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 35%, transparent); color: var(--warning); }
     .cue-tag.pause { background: var(--surface-3); border-color: var(--border); color: var(--muted); }
@@ -318,6 +340,9 @@
       .top-actions { row-gap: 5px; }
       .script-header h2 { font-size: 25px; }
       .paragraph { font-size: min(var(--script-size), 27px); }
+      .reader-style-switch button { min-height: 34px; padding: 5px 9px; }
+      body.points-mode .paragraph { font-size: min(calc(var(--script-size) * .8), 27px); padding: 11px 12px 11px 44px; }
+      body.points-mode .paragraph::before { left: 10px; top: 12px; width: 24px; height: 24px; }
       body.slides-mobile-open .slides-panel, body.notes-user-open .notes-panel {
         position: fixed; z-index: 25; top: var(--header-height); bottom: var(--footer-height);
         left: 7px; right: 7px; width: auto; opacity: 1; pointer-events: auto;
@@ -384,9 +409,16 @@
 
       <section class="panel script-panel" aria-label="当前讲稿">
         <div class="script-header">
-          <p class="eyebrow">当前幻灯片 · <span id="currentSlideNumber">01</span></p>
+          <div class="script-heading-row">
+            <p class="eyebrow">当前幻灯片 · <span id="currentSlideNumber">01</span></p>
+            <div class="reader-style-switch presentation-only" role="group" aria-label="讲稿显示方式">
+              <button type="button" id="readerFullBtn" class="active" aria-pressed="true" aria-controls="scriptReader">逐字稿</button>
+              <button type="button" id="readerPointsBtn" aria-pressed="false" aria-controls="scriptReader" title="按现有段落紧凑显示，不删减或改写文字">要点稿</button>
+            </div>
+          </div>
           <h2 id="currentTitle">Introduction</h2>
           <p class="subtitle" id="currentSubtitle">研究背景</p>
+          <p class="reader-style-hint presentation-only" id="readerStyleHint" hidden>每段一个要点 · 保留全部文字，不自动概括 · ↑↓ 切换要点</p>
         </div>
         <div class="script-reader" id="scriptReader"></div>
         <div class="editor hidden" id="editorPanel">
@@ -402,7 +434,7 @@
             <div class="field full">
               <label for="editScript">Script</label>
               <textarea class="script-input" id="editScript" placeholder="用空行分隔段落；[提示内容] 会显示为标签。"></textarea>
-              <p class="field-hint">用空行分段；演讲模式会自动识别 [停顿]、[强调]、[指向图片] 等提示标签。</p>
+              <p class="field-hint">用空行分段；要点稿中每段是一张卡片，单次换行可分隔主旨与展开提示。显示模式不改写文字；[停顿]、[强调]、[指向图片] 会显示为提示标签。</p>
             </div>
             <div class="field">
               <label for="editKeyPoints">本页要点（每行一条）</label>
@@ -641,6 +673,7 @@
       'use strict';
 
       const STORAGE_KEY = 'presenterScriptDataV1';
+      const READER_STYLE_KEY = 'presenterReaderStyleV1';
       const SUPABASE_URL = 'https://hiuzycvkssbnznilctxd.supabase.co';
       const SUPABASE_KEY = 'sb_publishable_ZTvcITVA_K4WnDhgChWZlg_8QUh6qTW';
       const APP_URL = 'https://ryanjunx.github.io/presentation/presenter_script.html';
@@ -671,7 +704,8 @@
         editTitle: $('#editTitle'), editSubtitle: $('#editSubtitle'), editScript: $('#editScript'),
         editKeyPoints: $('#editKeyPoints'), editExtraNotes: $('#editExtraNotes'),
         editEstimatedTime: $('#editEstimatedTime'), editTargetTime: $('#editTargetTime'),
-        importInput: $('#importInput'), themeLabel: $('#themeLabel')
+        importInput: $('#importInput'), themeLabel: $('#themeLabel'),
+        readerFullBtn: $('#readerFullBtn'), readerPointsBtn: $('#readerPointsBtn'), readerStyleHint: $('#readerStyleHint')
       };
 
       function newId() {
@@ -816,6 +850,34 @@
       }
 
       let state = loadData();
+      // Display preference is device-local, outside script snapshots and cloud payloads.
+      let readerStyle = loadReaderStyle();
+
+      function loadReaderStyle() {
+        try { return localStorage.getItem(READER_STYLE_KEY) === 'points' ? 'points' : 'full'; }
+        catch (_) { return 'full'; }
+      }
+
+      function applyReaderStyle() {
+        const points = readerStyle === 'points';
+        document.body.classList.toggle('points-mode', points);
+        elements.readerFullBtn.classList.toggle('active', !points);
+        elements.readerPointsBtn.classList.toggle('active', points);
+        elements.readerFullBtn.setAttribute('aria-pressed', String(!points));
+        elements.readerPointsBtn.setAttribute('aria-pressed', String(points));
+        elements.readerStyleHint.hidden = !points;
+      }
+
+      function setReaderStyle(style) {
+        const next = style === 'points' ? 'points' : 'full';
+        if (next === readerStyle) return;
+        readerStyle = next;
+        applyReaderStyle();
+        // Retain the current slide/paragraph; never save or upload script content here.
+        elements.scriptReader.querySelector('.paragraph.current')?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+        try { localStorage.setItem(READER_STYLE_KEY, readerStyle); }
+        catch (_) { elements.saveStatusInline.textContent = '显示已切换，未能记住偏好'; }
+      }
 
       function saveData(options = {}) {
         try {
@@ -883,6 +945,7 @@
         document.body.classList.toggle('dark', state.darkMode);
         document.documentElement.style.setProperty('--script-size', `${state.fontSize}px`);
         elements.themeLabel.textContent = state.darkMode ? '浅色' : '深色';
+        applyReaderStyle();
       }
 
       function renderSlides() {
@@ -1449,6 +1512,8 @@
         elements.nextSlideBtn.addEventListener('click', () => setCurrentSlide(state.currentSlide + 1));
         elements.presentModeBtn.addEventListener('click', () => toggleEditMode('presentation'));
         elements.editModeBtn.addEventListener('click', () => toggleEditMode('edit'));
+        elements.readerFullBtn.addEventListener('click', () => setReaderStyle('full'));
+        elements.readerPointsBtn.addEventListener('click', () => setReaderStyle('points'));
         $('#addSlideBtn').addEventListener('click', addSlide);
         $('#fontDown').addEventListener('click', () => changeFontSize(-FONT_STEP));
         $('#fontUp').addEventListener('click', () => changeFontSize(FONT_STEP));
